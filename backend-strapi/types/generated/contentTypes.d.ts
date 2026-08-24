@@ -472,6 +472,7 @@ export interface ApiDeltaEventDeltaEvent extends Struct.CollectionTypeSchema {
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    zoneId: Schema.Attribute.String;
   };
 }
 
@@ -496,6 +497,12 @@ export interface ApiItemItem extends Struct.CollectionTypeSchema {
       'api::delta-event.delta-event'
     >;
     expiryDate: Schema.Attribute.Date;
+    freshnessState: Schema.Attribute.Enumeration<
+      ['fresh', 'aging', 'spoiled', 'unknown']
+    > &
+      Schema.Attribute.DefaultTo<'unknown'>;
+    fridgeZone: Schema.Attribute.String;
+    isProduce: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     isStaple: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     lastSeenPhotoUrl: Schema.Attribute.String;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
@@ -512,6 +519,8 @@ export interface ApiItemItem extends Struct.CollectionTypeSchema {
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    visionConfidence: Schema.Attribute.Enumeration<['confirmed', 'unclear']> &
+      Schema.Attribute.DefaultTo<'confirmed'>;
   };
 }
 

@@ -11,7 +11,7 @@ const PUBLIC_ACTIONS = [
   'api::delta-event.delta-event.findOne',
   'api::delta-event.delta-event.create',
   'api::delta-event.delta-event.update',
-  'api::receipt.receipt.upload',
+  'plugin::upload.content-api.upload',
 ];
 
 module.exports = {

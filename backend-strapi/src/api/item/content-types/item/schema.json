@@ -40,6 +40,23 @@
     "lastSeenPhotoUrl": {
       "type": "string"
     },
+    "isProduce": {
+      "type": "boolean",
+      "default": false
+    },
+    "freshnessState": {
+      "type": "enumeration",
+      "enum": ["fresh", "aging", "spoiled", "unknown"],
+      "default": "unknown"
+    },
+    "fridgeZone": {
+      "type": "string"
+    },
+    "visionConfidence": {
+      "type": "enumeration",
+      "enum": ["confirmed", "unclear"],
+      "default": "confirmed"
+    },
     "deltaEvents": {
       "type": "relation",
       "relation": "manyToMany",

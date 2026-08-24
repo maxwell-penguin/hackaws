@@ -1,4 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { stripJsonFences } from "../../lib/strict-json";
+import { strapiHeaders } from "../../lib/strapi";
 
 const anthropic = new Anthropic();
 
@@ -19,12 +21,6 @@ const ALLOWED_MEDIA_TYPES = new Set([
   "image/gif",
   "image/webp",
 ]);
-
-function stripJsonFences(text: string): string {
-  const trimmed = text.trim();
-  const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
-  return fenced ? fenced[1].trim() : trimmed;
-}
 
 function addDays(days: number): string {
   const date = new Date();
@@ -86,16 +82,11 @@ export async function POST(request: Request) {
     );
   }
 
-  const strapiHeaders: Record<string, string> = { "Content-Type": "application/json" };
-  if (process.env.STRAPI_API_TOKEN) {
-    strapiHeaders.Authorization = `Bearer ${process.env.STRAPI_API_TOKEN}`;
-  }
-
   const created = await Promise.all(
     items.map(async (item) => {
       const strapiResponse = await fetch(`${strapiUrl}/api/items`, {
         method: "POST",
-        headers: strapiHeaders,
+        headers: strapiHeaders(),
         body: JSON.stringify({
           data: {
             name: item.name,

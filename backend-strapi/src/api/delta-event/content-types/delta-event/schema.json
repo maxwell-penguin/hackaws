@@ -21,6 +21,9 @@
     "geminiRawResponse": {
       "type": "json"
     },
+    "zoneId": {
+      "type": "string"
+    },
     "itemsFlagged": {
       "type": "relation",
       "relation": "manyToMany",
