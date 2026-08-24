@@ -1,0 +1,31 @@
+{
+  "kind": "collectionType",
+  "collectionName": "delta_events",
+  "info": {
+    "singularName": "delta-event",
+    "pluralName": "delta-events",
+    "displayName": "DeltaEvent",
+    "description": ""
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "photoUrl": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "datetime"
+    },
+    "geminiRawResponse": {
+      "type": "json"
+    },
+    "itemsFlagged": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::item.item",
+      "inversedBy": "deltaEvents"
+    }
+  }
+}

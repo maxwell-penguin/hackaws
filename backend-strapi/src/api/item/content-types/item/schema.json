@@ -1,0 +1,50 @@
+{
+  "kind": "collectionType",
+  "collectionName": "items",
+  "info": {
+    "singularName": "item",
+    "pluralName": "items",
+    "displayName": "Item",
+    "description": ""
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true
+    },
+    "quantity": {
+      "type": "decimal"
+    },
+    "unit": {
+      "type": "string"
+    },
+    "category": {
+      "type": "string"
+    },
+    "expiryDate": {
+      "type": "date"
+    },
+    "status": {
+      "type": "enumeration",
+      "enum": ["active", "consumed", "depleted", "expired"],
+      "default": "active"
+    },
+    "isStaple": {
+      "type": "boolean",
+      "default": false
+    },
+    "lastSeenPhotoUrl": {
+      "type": "string"
+    },
+    "deltaEvents": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::delta-event.delta-event",
+      "mappedBy": "itemsFlagged"
+    }
+  }
+}
