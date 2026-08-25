@@ -1,0 +1,5 @@
+strands-agents
+strands-agents-tools
+anthropic
+python-dotenv
+requests
