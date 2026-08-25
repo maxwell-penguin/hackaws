@@ -15,7 +15,8 @@ def log_event(message: str, type: str) -> str:
     several into one message. Suggested `type` values: "reasoning" for your prioritization
     reasoning, "unclear_confirmation" for a low-friction confirm-ask tied to an item from
     get_unclear_items, "restock_alert" for a confirmed expiring/depleted item notification,
-    and "error" for a failure you want surfaced.
+    "freshness_alert" for an aging/spoiled produce notification (with or without a recipe
+    suggestion), and "error" for a failure you want surfaced.
 
     Args:
         message: Plain-language text of the reasoning step or notification.
