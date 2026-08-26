@@ -24,13 +24,13 @@
 #include <vector>
 #include <string>
 
-// =========================== CONFIG — EDIT THESE ===========================
+// EDIT THESEEEEEEEEEEEEEEEEEE
 #define WIFI_SSID       "YOUR_WIFI_SSID"
 #define WIFI_PASS       "YOUR_WIFI_PASSWORD"
 #define ENDPOINT_URL    "https://YOUR_API_HOST/api/fridge-photos"
 
 // Distinct per physical board. Must match a fridgeZone value in Strapi.
-#define ZONE_ID         "top-shelf"   // e.g. "top-shelf", "door", "produce-bin"
+#define ZONE_ID         "top-shelf"   // e.g. top-shelf, door, produce-bin
 
 // DEMO_MODE = 1 (button trigger) is the default for judging.
 // Set to 0 to enable the 12-hour "production" auto-capture timer.
@@ -42,7 +42,6 @@
 #define BTN_PIN         12
 #define FLASH_LED_PIN   4           // Freenove / AI-Thinker ESP32-CAM flash LED
 #define CAPTURE_INTERVAL_MS (12UL * 60UL * 60UL * 1000UL)  // 12 hours
-// ===========================================================================
 
 // ---- Camera pinout: CAMERA_MODEL_AI_THINKER (Freenove ESP32-CAM) ----------
 #define PWDN_GPIO_NUM   32
