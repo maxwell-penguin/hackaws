@@ -12,6 +12,7 @@ Return STRICT JSON only — no markdown, no code fences, no commentary. The outp
 - unit: string (e.g. "count", "lb", "oz", "gallon")
 - category: string (e.g. "produce", "dairy", "meat", "pantry", "frozen", "beverage")
 - estimatedExpiryDays: integer, typical days until this item expires from today if stored normally
+- price: number, the price shown next to this line item on the receipt, or null if no price is visible or legible — do not guess
 
 If you cannot identify any items, return an empty array [].`;
 
@@ -65,16 +66,35 @@ export async function POST(request: Request) {
     return Response.json({ error: "No text response from model" }, { status: 502 });
   }
 
-  let items: Array<{
+  type ReceiptItem = {
     name: string;
     quantity: number;
     unit: string;
     category: string;
     estimatedExpiryDays: number;
-  }>;
+    price: number | null;
+  };
+
+  function isValidReceiptItem(value: unknown): value is ReceiptItem {
+    if (!value || typeof value !== "object") return false;
+    const v = value as Record<string, unknown>;
+    return (
+      typeof v.name === "string" &&
+      typeof v.quantity === "number" &&
+      typeof v.unit === "string" &&
+      typeof v.category === "string" &&
+      typeof v.estimatedExpiryDays === "number" &&
+      (v.price === null || typeof v.price === "number")
+    );
+  }
+
+  let items: ReceiptItem[];
   try {
-    items = JSON.parse(stripJsonFences(textBlock.text));
-    if (!Array.isArray(items)) throw new Error("not an array");
+    const parsed = JSON.parse(stripJsonFences(textBlock.text));
+    if (!Array.isArray(parsed) || !parsed.every(isValidReceiptItem)) {
+      throw new Error("invalid shape");
+    }
+    items = parsed;
   } catch {
     return Response.json(
       { error: "Model did not return valid JSON", raw: textBlock.text },
@@ -94,6 +114,7 @@ export async function POST(request: Request) {
             unit: item.unit,
             category: item.category,
             expiryDate: addDays(item.estimatedExpiryDays),
+            pricePaid: item.price,
           },
         }),
       });
