@@ -33,29 +33,18 @@
       "enum": ["active", "consumed", "depleted", "expired"],
       "default": "active"
     },
-    "isStaple": {
-      "type": "boolean",
-      "default": false
-    },
-    "lastSeenPhotoUrl": {
+    "description": {
       "type": "string"
     },
-    "isProduce": {
-      "type": "boolean",
-      "default": false
+    "pricePaid": {
+      "type": "decimal"
     },
-    "freshnessState": {
-      "type": "enumeration",
-      "enum": ["fresh", "aging", "spoiled", "unknown"],
-      "default": "unknown"
-    },
-    "fridgeZone": {
+    "photoUrl": {
       "type": "string"
     },
-    "visionConfidence": {
+    "source": {
       "type": "enumeration",
-      "enum": ["confirmed", "unclear"],
-      "default": "confirmed"
+      "enum": ["manual-scan", "receipt"]
     },
     "deltaEvents": {
       "type": "relation",

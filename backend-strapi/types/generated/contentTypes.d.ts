@@ -496,21 +496,17 @@ export interface ApiItemItem extends Struct.CollectionTypeSchema {
       'manyToMany',
       'api::delta-event.delta-event'
     >;
+    description: Schema.Attribute.String;
     expiryDate: Schema.Attribute.Date;
-    freshnessState: Schema.Attribute.Enumeration<
-      ['fresh', 'aging', 'spoiled', 'unknown']
-    > &
-      Schema.Attribute.DefaultTo<'unknown'>;
-    fridgeZone: Schema.Attribute.String;
-    isProduce: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
-    isStaple: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
-    lastSeenPhotoUrl: Schema.Attribute.String;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<'oneToMany', 'api::item.item'> &
       Schema.Attribute.Private;
     name: Schema.Attribute.String & Schema.Attribute.Required;
+    photoUrl: Schema.Attribute.String;
+    pricePaid: Schema.Attribute.Decimal;
     publishedAt: Schema.Attribute.DateTime;
     quantity: Schema.Attribute.Decimal;
+    source: Schema.Attribute.Enumeration<['manual-scan', 'receipt']>;
     status: Schema.Attribute.Enumeration<
       ['active', 'consumed', 'depleted', 'expired']
     > &
