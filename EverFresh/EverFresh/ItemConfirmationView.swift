@@ -109,6 +109,7 @@ struct ItemConfirmationView: View {
         source: "manual-scan",
         status: "active",
         quantity: 1,
-        pricePaid: 0
+        pricePaid: 0,
+        createdAt: "2026-09-13T10:15:30.000Z"
     ))
 }

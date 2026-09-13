@@ -9,7 +9,7 @@ struct MainTabView: View {
             ExpiringSoonView()
                 .tabItem { Label("Expiring", systemImage: "clock.badge.exclamationmark") }
 
-            Text("Coming soon")
+            GroceryHistoryView()
                 .tabItem { Label("History", systemImage: "clock.arrow.circlepath") }
 
             Text("Coming soon")

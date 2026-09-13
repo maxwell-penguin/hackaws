@@ -23,4 +23,21 @@ enum StrapiDate {
         let today = Calendar.current.startOfDay(for: now)
         return Calendar.current.dateComponents([.day], from: today, to: target).day
     }
+
+    private static let dateTimeFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
+    private static let dateTimeFormatterNoFractionalSeconds: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter
+    }()
+
+    /// Parses Strapi's createdAt/updatedAt timestamps, which include a time component.
+    static func dateTime(from string: String) -> Date? {
+        dateTimeFormatter.date(from: string) ?? dateTimeFormatterNoFractionalSeconds.date(from: string)
+    }
 }

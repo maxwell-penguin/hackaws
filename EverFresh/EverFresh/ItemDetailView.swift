@@ -120,7 +120,8 @@ struct ItemDetailView: View {
             source: "manual-scan",
             status: "active",
             quantity: 2,
-            pricePaid: 1.5
+            pricePaid: 1.5,
+            createdAt: "2026-09-13T10:15:30.000Z"
         ))
     }
 }

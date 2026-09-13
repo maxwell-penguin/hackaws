@@ -17,13 +17,14 @@ struct ScannedItem: Identifiable, Codable {
     var status: String
     var quantity: Double
     var pricePaid: Double?
+    var createdAt: String
 
     var id: String { documentId }
 
     enum CodingKeys: String, CodingKey {
         case documentId
         case numericId = "id"
-        case name, description, category, expiryDate, photoUrl, source, status, quantity, pricePaid
+        case name, description, category, expiryDate, photoUrl, source, status, quantity, pricePaid, createdAt
     }
 
     init(
@@ -37,7 +38,8 @@ struct ScannedItem: Identifiable, Codable {
         source: String,
         status: String,
         quantity: Double,
-        pricePaid: Double?
+        pricePaid: Double?,
+        createdAt: String
     ) {
         self.documentId = documentId
         self.numericId = numericId
@@ -50,6 +52,7 @@ struct ScannedItem: Identifiable, Codable {
         self.status = status
         self.quantity = quantity
         self.pricePaid = pricePaid
+        self.createdAt = createdAt
     }
 }
 

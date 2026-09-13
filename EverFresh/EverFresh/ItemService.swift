@@ -99,6 +99,17 @@ enum ItemService {
         return try JSONDecoder().decode(StrapiListResponse<ScannedItem>.self, from: data).data
     }
 
+    static func fetchAllItems() async throws -> [ScannedItem] {
+        var components = URLComponents(string: "\(Config.strapiBaseURL)/api/items")!
+        components.queryItems = [
+            URLQueryItem(name: "sort", value: "createdAt:desc"),
+        ]
+
+        let (data, response) = try await URLSession.shared.data(from: components.url!)
+        try Self.checkOK(data: data, response: response)
+        return try JSONDecoder().decode(StrapiListResponse<ScannedItem>.self, from: data).data
+    }
+
     private static func checkOK(data: Data, response: URLResponse) throws {
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ItemServiceError.invalidResponse
