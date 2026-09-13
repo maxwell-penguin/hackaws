@@ -1,0 +1,86 @@
+import Foundation
+import UIKit
+
+enum ItemServiceError: LocalizedError {
+    case invalidImage
+    case invalidResponse
+    case server(status: Int, message: String)
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidImage:
+            return "Couldn't read the selected photo."
+        case .invalidResponse:
+            return "The server returned an unexpected response."
+        case .server(let status, let message):
+            return "Server error (\(status)): \(message)"
+        }
+    }
+}
+
+private struct MultipartFormData {
+    let boundary = UUID().uuidString
+    private var data = Data()
+
+    mutating func addFile(fieldName: String, fileName: String, mimeType: String, fileData: Data) {
+        data.append("--\(boundary)\r\n".data(using: .utf8)!)
+        data.append("Content-Disposition: form-data; name=\"\(fieldName)\"; filename=\"\(fileName)\"\r\n".data(using: .utf8)!)
+        data.append("Content-Type: \(mimeType)\r\n\r\n".data(using: .utf8)!)
+        data.append(fileData)
+        data.append("\r\n".data(using: .utf8)!)
+    }
+
+    func finalize() -> Data {
+        var result = data
+        result.append("--\(boundary)--\r\n".data(using: .utf8)!)
+        return result
+    }
+}
+
+enum ItemService {
+    static func scanItem(image: UIImage) async throws -> ScannedItem {
+        guard let jpegData = image.jpegData(compressionQuality: 0.8) else {
+            throw ItemServiceError.invalidImage
+        }
+
+        var form = MultipartFormData()
+        form.addFile(fieldName: "image", fileName: "item.jpg", mimeType: "image/jpeg", fileData: jpegData)
+
+        var request = URLRequest(url: URL(string: "\(Config.baseURL)/api/items/scan")!)
+        request.httpMethod = "POST"
+        request.setValue("multipart/form-data; boundary=\(form.boundary)", forHTTPHeaderField: "Content-Type")
+        request.httpBody = form.finalize()
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try Self.checkOK(data: data, response: response)
+        return try JSONDecoder().decode(ScanResponse.self, from: data).item
+    }
+
+    static func saveItem(_ item: ScannedItem) async throws {
+        var request = URLRequest(url: URL(string: "\(Config.strapiBaseURL)/api/items/\(item.documentId)")!)
+        request.httpMethod = "PUT"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: [
+            "data": [
+                "name": item.name,
+                "description": item.description,
+                "category": item.category,
+                "expiryDate": item.expiryDate,
+                "pricePaid": item.pricePaid as Any,
+            ]
+        ])
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try Self.checkOK(data: data, response: response)
+    }
+
+    private static func checkOK(data: Data, response: URLResponse) throws {
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw ItemServiceError.invalidResponse
+        }
+        guard (200..<300).contains(httpResponse.statusCode) else {
+            let message = String(data: data, encoding: .utf8) ?? "Unknown error"
+            throw ItemServiceError.server(status: httpResponse.statusCode, message: message)
+        }
+    }
+}
