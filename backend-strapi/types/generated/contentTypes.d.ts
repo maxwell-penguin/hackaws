@@ -503,6 +503,8 @@ export interface ApiItemItem extends Struct.CollectionTypeSchema {
       Schema.Attribute.Private;
     name: Schema.Attribute.String & Schema.Attribute.Required;
     photoUrl: Schema.Attribute.String;
+    positionX: Schema.Attribute.Decimal;
+    positionY: Schema.Attribute.Decimal;
     pricePaid: Schema.Attribute.Decimal;
     publishedAt: Schema.Attribute.DateTime;
     quantity: Schema.Attribute.Decimal;

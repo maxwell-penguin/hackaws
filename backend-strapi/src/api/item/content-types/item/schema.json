@@ -46,6 +46,12 @@
       "type": "enumeration",
       "enum": ["manual-scan", "receipt"]
     },
+    "positionX": {
+      "type": "decimal"
+    },
+    "positionY": {
+      "type": "decimal"
+    },
     "deltaEvents": {
       "type": "relation",
       "relation": "manyToMany",
