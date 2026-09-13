@@ -12,7 +12,7 @@ struct MainTabView: View {
             GroceryHistoryView()
                 .tabItem { Label("History", systemImage: "clock.arrow.circlepath") }
 
-            Text("Coming soon")
+            RecipeSuggestionsView()
                 .tabItem { Label("Recipes", systemImage: "fork.knife") }
         }
     }

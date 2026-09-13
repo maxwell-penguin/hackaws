@@ -110,6 +110,31 @@ enum ItemService {
         return try JSONDecoder().decode(StrapiListResponse<ScannedItem>.self, from: data).data
     }
 
+    static func fetchActiveItems() async throws -> [ScannedItem] {
+        var components = URLComponents(string: "\(Config.strapiBaseURL)/api/items")!
+        components.queryItems = [
+            URLQueryItem(name: "filters[status][$eq]", value: "active"),
+        ]
+
+        let (data, response) = try await URLSession.shared.data(from: components.url!)
+        try Self.checkOK(data: data, response: response)
+        return try JSONDecoder().decode(StrapiListResponse<ScannedItem>.self, from: data).data
+    }
+
+    static func fetchRecipeSuggestions(expiringItems: [String], activeInventory: [String]) async throws -> [RecipeSuggestion] {
+        var request = URLRequest(url: URL(string: "\(Config.baseURL)/api/recipe-suggestions")!)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode([
+            "expiringItems": expiringItems,
+            "activeInventory": activeInventory,
+        ])
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try Self.checkOK(data: data, response: response)
+        return try JSONDecoder().decode(RecipeSuggestionsResponse.self, from: data).recipes
+    }
+
     private static func checkOK(data: Data, response: URLResponse) throws {
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ItemServiceError.invalidResponse
