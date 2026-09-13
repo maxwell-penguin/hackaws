@@ -84,6 +84,21 @@ enum ItemService {
         try Self.checkOK(data: data, response: response)
     }
 
+    static func fetchExpiringSoon(withinDays days: Int) async throws -> [ScannedItem] {
+        let cutoff = StrapiDate.string(from: Calendar.current.date(byAdding: .day, value: days, to: Date()) ?? Date())
+
+        var components = URLComponents(string: "\(Config.strapiBaseURL)/api/items")!
+        components.queryItems = [
+            URLQueryItem(name: "filters[expiryDate][$lte]", value: cutoff),
+            URLQueryItem(name: "filters[status][$eq]", value: "active"),
+            URLQueryItem(name: "sort", value: "expiryDate:asc"),
+        ]
+
+        let (data, response) = try await URLSession.shared.data(from: components.url!)
+        try Self.checkOK(data: data, response: response)
+        return try JSONDecoder().decode(StrapiListResponse<ScannedItem>.self, from: data).data
+    }
+
     private static func checkOK(data: Data, response: URLResponse) throws {
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ItemServiceError.invalidResponse

@@ -57,3 +57,8 @@ struct ScannedItem: Identifiable, Codable {
 struct ScanResponse: Codable {
     let item: ScannedItem
 }
+
+/// Strapi's collection endpoints wrap results as { "data": [...], "meta": {...} }.
+struct StrapiListResponse<T: Decodable>: Decodable {
+    let data: [T]
+}

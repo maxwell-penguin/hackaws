@@ -14,29 +14,16 @@ struct ItemDetailView: View {
         _quantity = State(initialValue: item.quantity)
     }
 
-    private static let dateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        formatter.timeZone = TimeZone(identifier: "UTC")
-        return formatter
-    }()
-
-    private var expiryDate: Date? {
-        Self.dateFormatter.date(from: item.expiryDate)
-    }
-
     private var expiryLabel: String {
-        guard let expiryDate else { return item.expiryDate }
-        let today = Calendar.current.startOfDay(for: Date())
-        let days = Calendar.current.dateComponents([.day], from: today, to: expiryDate).day ?? 0
+        guard let days = StrapiDate.daysUntil(item.expiryDate) else { return item.expiryDate }
         if days < 0 { return "Expired" }
         if days == 0 { return "Expires today" }
         return "\(days) day\(days == 1 ? "" : "s") left"
     }
 
     private var expiryColor: Color {
-        guard let expiryDate else { return .secondary }
-        return expiryDate < Calendar.current.startOfDay(for: Date()) ? .red : .secondary
+        guard let days = StrapiDate.daysUntil(item.expiryDate) else { return .secondary }
+        return days < 0 ? .red : .secondary
     }
 
     private var priceLabel: String {

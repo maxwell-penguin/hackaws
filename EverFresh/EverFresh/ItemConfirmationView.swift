@@ -19,15 +19,8 @@ struct ItemConfirmationView: View {
         _name = State(initialValue: item.name)
         _description = State(initialValue: item.description)
         _category = State(initialValue: item.category)
-        _expiryDate = State(initialValue: Self.dateFormatter.date(from: item.expiryDate) ?? Date())
+        _expiryDate = State(initialValue: StrapiDate.date(from: item.expiryDate) ?? Date())
     }
-
-    private static let dateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        formatter.timeZone = TimeZone(identifier: "UTC")
-        return formatter
-    }()
 
     var body: some View {
         NavigationStack {
@@ -91,7 +84,7 @@ struct ItemConfirmationView: View {
         updated.name = name
         updated.description = description
         updated.category = category
-        updated.expiryDate = Self.dateFormatter.string(from: expiryDate)
+        updated.expiryDate = StrapiDate.string(from: expiryDate)
         updated.pricePaid = Double(priceText)
 
         do {
