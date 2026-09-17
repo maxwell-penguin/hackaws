@@ -8,6 +8,7 @@ const PROMPT = `You are extracting purchased items from a photo of a grocery rec
 
 Return STRICT JSON only — no markdown, no code fences, no commentary. The output must be a JSON array where each element has exactly these fields:
 - name: string, the item name
+- description: string, a short one-sentence description of the item
 - quantity: number
 - unit: string (e.g. "count", "lb", "oz", "gallon")
 - category: string (e.g. "produce", "dairy", "meat", "pantry", "frozen", "beverage")
@@ -68,6 +69,7 @@ export async function POST(request: Request) {
 
   type ReceiptItem = {
     name: string;
+    description: string;
     quantity: number;
     unit: string;
     category: string;
@@ -80,6 +82,7 @@ export async function POST(request: Request) {
     const v = value as Record<string, unknown>;
     return (
       typeof v.name === "string" &&
+      typeof v.description === "string" &&
       typeof v.quantity === "number" &&
       typeof v.unit === "string" &&
       typeof v.category === "string" &&
@@ -110,11 +113,13 @@ export async function POST(request: Request) {
         body: JSON.stringify({
           data: {
             name: item.name,
+            description: item.description,
             quantity: item.quantity,
             unit: item.unit,
             category: item.category,
             expiryDate: addDays(item.estimatedExpiryDays),
             pricePaid: item.price,
+            source: "receipt",
           },
         }),
       });
