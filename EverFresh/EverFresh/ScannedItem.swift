@@ -9,11 +9,11 @@ struct ScannedItem: Identifiable, Codable {
     var documentId: String
     var numericId: Int
     var name: String
-    var description: String
-    var category: String
+    var description: String?
+    var category: String?
     var expiryDate: String
     var photoUrl: String?
-    var source: String
+    var source: String?
     var status: String
     var quantity: Double
     var pricePaid: Double?
@@ -33,11 +33,11 @@ struct ScannedItem: Identifiable, Codable {
         documentId: String,
         numericId: Int,
         name: String,
-        description: String,
-        category: String,
+        description: String?,
+        category: String?,
         expiryDate: String,
         photoUrl: String?,
-        source: String,
+        source: String?,
         status: String,
         quantity: Double,
         pricePaid: Double?,

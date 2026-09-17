@@ -88,7 +88,11 @@ private struct GroceryHistoryRow: View {
     }
 
     private var sourceIcon: String {
-        item.source == "receipt" ? "receipt" : "camera.viewfinder"
+        switch item.source {
+        case "receipt": return "receipt"
+        case "manual-scan": return "camera.viewfinder"
+        default: return "questionmark.circle"
+        }
     }
 
     var body: some View {
@@ -99,7 +103,7 @@ private struct GroceryHistoryRow: View {
             VStack(alignment: .leading) {
                 Text(item.name)
                     .font(.headline)
-                Text(item.category)
+                Text(item.category ?? "Uncategorized")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }

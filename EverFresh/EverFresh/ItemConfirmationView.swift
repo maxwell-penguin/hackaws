@@ -17,8 +17,8 @@ struct ItemConfirmationView: View {
     init(item: ScannedItem) {
         self.original = item
         _name = State(initialValue: item.name)
-        _description = State(initialValue: item.description)
-        _category = State(initialValue: item.category)
+        _description = State(initialValue: item.description ?? "")
+        _category = State(initialValue: item.category ?? "")
         _expiryDate = State(initialValue: StrapiDate.date(from: item.expiryDate) ?? Date())
     }
 

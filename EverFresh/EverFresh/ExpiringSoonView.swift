@@ -75,7 +75,7 @@ private struct ExpiringSoonRow: View {
             VStack(alignment: .leading) {
                 Text(item.name)
                     .font(.headline)
-                Text(item.category)
+                Text(item.category ?? "Uncategorized")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }

@@ -63,8 +63,8 @@ enum ItemService {
         request.httpBody = try JSONSerialization.data(withJSONObject: [
             "data": [
                 "name": item.name,
-                "description": item.description,
-                "category": item.category,
+                "description": item.description as Any,
+                "category": item.category as Any,
                 "expiryDate": item.expiryDate,
                 "pricePaid": item.pricePaid as Any,
             ]

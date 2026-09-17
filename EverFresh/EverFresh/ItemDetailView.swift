@@ -45,10 +45,10 @@ struct ItemDetailView: View {
 
             Section("Item") {
                 LabeledContent("Name", value: item.name)
-                if !item.description.isEmpty {
-                    LabeledContent("Description", value: item.description)
+                if let description = item.description, !description.isEmpty {
+                    LabeledContent("Description", value: description)
                 }
-                LabeledContent("Category", value: item.category)
+                LabeledContent("Category", value: item.category ?? "Uncategorized")
             }
 
             Section("Details") {

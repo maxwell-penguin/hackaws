@@ -119,7 +119,7 @@ private struct DraggableItemView: View {
 
     var body: some View {
         VStack(spacing: 4) {
-            Image(systemName: CategoryIcons.symbol(for: item.category))
+            Image(systemName: CategoryIcons.symbol(for: item.category ?? "other"))
                 .font(.system(size: 26))
                 .frame(width: 56, height: 56)
                 .background(.thinMaterial, in: Circle())
