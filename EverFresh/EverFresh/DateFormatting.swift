@@ -9,8 +9,9 @@ enum StrapiDate {
         return formatter
     }()
 
-    static func date(from string: String) -> Date? {
-        formatter.date(from: string)
+    static func date(from string: String?) -> Date? {
+        guard let string else { return nil }
+        return formatter.date(from: string)
     }
 
     static func string(from date: Date) -> String {
@@ -18,7 +19,7 @@ enum StrapiDate {
     }
 
     /// Whole days from today until `dateString`'s day. Negative means already past.
-    static func daysUntil(_ dateString: String, from now: Date = Date()) -> Int? {
+    static func daysUntil(_ dateString: String?, from now: Date = Date()) -> Int? {
         guard let target = date(from: dateString) else { return nil }
         let today = Calendar.current.startOfDay(for: now)
         return Calendar.current.dateComponents([.day], from: today, to: target).day

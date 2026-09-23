@@ -11,11 +11,11 @@ struct ItemDetailView: View {
 
     init(item: ScannedItem) {
         _item = State(initialValue: item)
-        _quantity = State(initialValue: item.quantity)
+        _quantity = State(initialValue: item.quantity ?? 0)
     }
 
     private var expiryLabel: String {
-        guard let days = StrapiDate.daysUntil(item.expiryDate) else { return item.expiryDate }
+        guard let days = StrapiDate.daysUntil(item.expiryDate) else { return item.expiryDate ?? "Unknown" }
         if days < 0 { return "Expired" }
         if days == 0 { return "Expires today" }
         return "\(days) day\(days == 1 ? "" : "s") left"
@@ -100,7 +100,7 @@ struct ItemDetailView: View {
             try? await Task.sleep(for: .seconds(1.5))
             showSaved = false
         } catch {
-            quantity = item.quantity
+            quantity = item.quantity ?? 0
             errorMessage = error.localizedDescription
             showError = true
         }

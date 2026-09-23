@@ -59,7 +59,7 @@ private struct ExpiringSoonRow: View {
     private var daysLeft: Int? { StrapiDate.daysUntil(item.expiryDate) }
 
     private var label: String {
-        guard let daysLeft else { return item.expiryDate }
+        guard let daysLeft else { return item.expiryDate ?? "Unknown" }
         if daysLeft < 0 { return "Expired" }
         if daysLeft == 0 { return "Today" }
         return "\(daysLeft)d left"

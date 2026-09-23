@@ -11,11 +11,11 @@ struct ScannedItem: Identifiable, Codable {
     var name: String
     var description: String?
     var category: String?
-    var expiryDate: String
+    var expiryDate: String?
     var photoUrl: String?
     var source: String?
     var status: String
-    var quantity: Double
+    var quantity: Double?
     var pricePaid: Double?
     var createdAt: String
     var positionX: Double?
@@ -35,11 +35,11 @@ struct ScannedItem: Identifiable, Codable {
         name: String,
         description: String?,
         category: String?,
-        expiryDate: String,
+        expiryDate: String?,
         photoUrl: String?,
         source: String?,
         status: String,
-        quantity: Double,
+        quantity: Double?,
         pricePaid: Double?,
         createdAt: String,
         positionX: Double? = nil,
@@ -68,6 +68,32 @@ struct ScanResponse: Codable {
 }
 
 /// Strapi's collection endpoints wrap results as { "data": [...], "meta": {...} }.
+///
+/// Decodes each element independently so one malformed record (e.g. an unexpected null)
+/// doesn't fail the whole list — it's dropped and logged instead.
 struct StrapiListResponse<T: Decodable>: Decodable {
     let data: [T]
+
+    private enum CodingKeys: String, CodingKey {
+        case data
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let entries = try container.decode([FailableDecodable<T>].self, forKey: .data)
+        data = entries.compactMap(\.value)
+    }
+}
+
+private struct FailableDecodable<T: Decodable>: Decodable {
+    let value: T?
+
+    init(from decoder: Decoder) throws {
+        do {
+            value = try T(from: decoder)
+        } catch {
+            print("[StrapiListResponse] Skipping malformed \(T.self) record: \(error)")
+            value = nil
+        }
+    }
 }
