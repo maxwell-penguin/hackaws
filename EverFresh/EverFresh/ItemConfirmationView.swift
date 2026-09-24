@@ -87,6 +87,8 @@ struct ItemConfirmationView: View {
         updated.category = category
         updated.expiryDate = StrapiDate.string(from: expiryDate)
         updated.pricePaid = Double(priceText)
+        // Quantity is now "percent left" (100 = full); a freshly scanned item always starts full.
+        updated.quantity = 100
 
         do {
             try await ItemService.saveItem(updated)

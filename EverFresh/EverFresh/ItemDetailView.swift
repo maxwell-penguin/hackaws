@@ -60,7 +60,7 @@ struct ItemDetailView: View {
 
             Section("Quantity") {
                 HStack {
-                    Text(quantity.formatted(.number.precision(.fractionLength(0...1))))
+                    Text("\(Int(quantity))% left")
                         .font(.headline)
                         .monospacedDigit()
                     Spacer()
@@ -73,7 +73,7 @@ struct ItemDetailView: View {
                             .font(.caption)
                     }
                 }
-                Slider(value: $quantity, in: 0...10, step: 0.5) { isEditing in
+                Slider(value: $quantity, in: 0...100, step: 5) { isEditing in
                     guard !isEditing else { return }
                     Task { await updateQuantity() }
                 }
@@ -119,7 +119,7 @@ struct ItemDetailView: View {
             photoUrl: nil,
             source: "manual-scan",
             status: "active",
-            quantity: 2,
+            quantity: 75,
             pricePaid: 1.5,
             createdAt: "2026-09-13T10:15:30.000Z"
         ))

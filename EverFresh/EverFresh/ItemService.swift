@@ -67,6 +67,7 @@ enum ItemService {
                 "category": item.category as Any,
                 "expiryDate": item.expiryDate as Any,
                 "pricePaid": item.pricePaid as Any,
+                "quantity": item.quantity as Any,
             ]
         ])
 
