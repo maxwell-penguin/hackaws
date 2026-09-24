@@ -98,4 +98,5 @@ struct ItemScanView: View {
 
 #Preview {
     ItemScanView()
+        .environmentObject(AppState())
 }

@@ -5,6 +5,7 @@ import SwiftUI
 struct FridgeCanvasView: View {
     var onScanTapped: () -> Void = {}
 
+    @EnvironmentObject private var appState: AppState
     @State private var items: [ScannedItem] = []
     @State private var positions: [String: CGPoint] = [:]
     @State private var isLoading = false
@@ -63,6 +64,10 @@ struct FridgeCanvasView: View {
                 }
             }
             .task { await load() }
+            .onChange(of: appState.selectedTab) { _, newTab in
+                guard newTab == .fridge else { return }
+                Task { await load() }
+            }
         }
     }
 
@@ -153,4 +158,5 @@ private struct DraggableItemView: View {
 
 #Preview {
     FridgeCanvasView()
+        .environmentObject(AppState())
 }

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ItemConfirmationView: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var appState: AppState
 
     private let original: ScannedItem
 
@@ -89,6 +90,7 @@ struct ItemConfirmationView: View {
 
         do {
             try await ItemService.saveItem(updated)
+            appState.selectedTab = .fridge
             dismiss()
         } catch {
             errorMessage = error.localizedDescription
@@ -112,4 +114,5 @@ struct ItemConfirmationView: View {
         pricePaid: 0,
         createdAt: "2026-09-13T10:15:30.000Z"
     ))
+    .environmentObject(AppState())
 }

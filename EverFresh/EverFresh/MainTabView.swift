@@ -1,37 +1,34 @@
 import SwiftUI
 
 struct MainTabView: View {
-    private enum Tab: Hashable {
-        case scan, expiring, history, recipes, fridge
-    }
-
-    @State private var selectedTab: Tab = .scan
+    @EnvironmentObject private var appState: AppState
 
     var body: some View {
-        TabView(selection: $selectedTab) {
+        TabView(selection: $appState.selectedTab) {
             ItemScanView()
                 .tabItem { Label("Scan", systemImage: "camera") }
-                .tag(Tab.scan)
+                .tag(AppTab.scan)
+
+            FridgeCanvasView(onScanTapped: { appState.selectedTab = .scan })
+                .tabItem { Label("Fridge", systemImage: "refrigerator") }
+                .tag(AppTab.fridge)
 
             ExpiringSoonView()
                 .tabItem { Label("Expiring", systemImage: "clock.badge.exclamationmark") }
-                .tag(Tab.expiring)
+                .tag(AppTab.expiring)
 
             GroceryHistoryView()
                 .tabItem { Label("History", systemImage: "clock.arrow.circlepath") }
-                .tag(Tab.history)
+                .tag(AppTab.history)
 
             RecipeSuggestionsView()
                 .tabItem { Label("Recipes", systemImage: "fork.knife") }
-                .tag(Tab.recipes)
-
-            FridgeCanvasView(onScanTapped: { selectedTab = .scan })
-                .tabItem { Label("Fridge", systemImage: "refrigerator") }
-                .tag(Tab.fridge)
+                .tag(AppTab.recipes)
         }
     }
 }
 
 #Preview {
     MainTabView()
+        .environmentObject(AppState())
 }
