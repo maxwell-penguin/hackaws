@@ -7,6 +7,7 @@ import SwiftUI
 struct FridgeIllustrationView: View {
     let scale: CGFloat
     let offset: CGSize
+    var highlightedZone: FridgeZone? = nil
 
     private func screenRect(_ rect: CGRect) -> CGRect {
         CGRect(
@@ -40,7 +41,26 @@ struct FridgeIllustrationView: View {
             zoneOutline(.leftDoorBin, cornerRadius: 8)
             zoneOutline(.rightDoorBin, cornerRadius: 8)
             zoneOutline(.crisperDrawer, cornerRadius: 12)
+
+            if let highlightedZone {
+                highlightOverlay(for: highlightedZone)
+            }
         }
+    }
+
+    /// Drawn on top of everything else so a drag highlights its target zone regardless of
+    /// whether that zone normally has its own outline (shelves don't, bins/drawer do).
+    private func highlightOverlay(for zone: FridgeZone) -> some View {
+        let rect = screenRect(FridgeLayout.rects[zone]!)
+        return RoundedRectangle(cornerRadius: 10)
+            .fill(Color.accentColor.opacity(0.2))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .strokeBorder(Color.accentColor, lineWidth: 2.5)
+            )
+            .frame(width: max(rect.width - 6, 0), height: max(rect.height - 6, 0))
+            .position(x: rect.midX, y: rect.midY)
+            .animation(.easeInOut(duration: 0.15), value: highlightedZone)
     }
 
     private func shelfDivider(atLogicalY y: CGFloat) -> some View {

@@ -11,13 +11,18 @@ struct FridgeVisualView: View {
     @State private var positions: [String: CGPoint] = [:]
     @State private var selectedItem: ScannedItem?
     @State private var isDetailPresented = false
+    @State private var highlightedZone: FridgeZone?
 
     var body: some View {
         GeometryReader { geometry in
             let transform = CanvasTransform(fitting: FridgeLayout.size, in: geometry.size)
 
             ZStack {
-                FridgeIllustrationView(scale: transform.scale, offset: transform.offset)
+                FridgeIllustrationView(
+                    scale: transform.scale,
+                    offset: transform.offset,
+                    highlightedZone: highlightedZone
+                )
 
                 ForEach(items) { item in
                     DraggableItemView(
@@ -28,9 +33,14 @@ struct FridgeVisualView: View {
                             selectedItem = item
                             isDetailPresented = true
                         },
+                        onDragChanged: { zone in
+                            highlightedZone = zone
+                        },
                         onDragEnded: { newLogicalPosition in
-                            positions[item.documentId] = newLogicalPosition
-                            Task { await persistPosition(item: item, point: newLogicalPosition) }
+                            highlightedZone = nil
+                            let adjusted = adjustedPosition(for: item.documentId, near: newLogicalPosition)
+                            positions[item.documentId] = adjusted
+                            Task { await persistPosition(item: item, point: adjusted) }
                         }
                     )
                 }
@@ -67,6 +77,21 @@ struct FridgeVisualView: View {
                 )
             }
         }
+    }
+
+    /// If the drop point is too close to another item's current position, nudge it by a small
+    /// fixed offset so icons in the same zone don't stack exactly on top of each other. This
+    /// only avoids near-exact overlap — it isn't a full grid-packing pass.
+    private func adjustedPosition(for documentId: String, near point: CGPoint) -> CGPoint {
+        let overlapThreshold: CGFloat = 28
+        let nudge: CGFloat = 22
+
+        let overlapsExisting = positions.contains { key, otherPoint in
+            key != documentId && hypot(otherPoint.x - point.x, otherPoint.y - point.y) < overlapThreshold
+        }
+        guard overlapsExisting else { return point }
+
+        return CGPoint(x: point.x + nudge, y: point.y + nudge)
     }
 
     private func persistPosition(item: ScannedItem, point: CGPoint) async {
@@ -106,6 +131,7 @@ private struct DraggableItemView: View {
     let basePosition: CGPoint
     let transform: CanvasTransform
     let onTap: () -> Void
+    let onDragChanged: (FridgeZone?) -> Void
     let onDragEnded: (CGPoint) -> Void
 
     @State private var dragTranslation: CGSize = .zero
@@ -113,6 +139,12 @@ private struct DraggableItemView: View {
     private var displayPosition: CGPoint {
         let screenBase = transform.toScreen(basePosition)
         return CGPoint(x: screenBase.x + dragTranslation.width, y: screenBase.y + dragTranslation.height)
+    }
+
+    private func logicalPoint(forScreenTranslation translation: CGSize) -> CGPoint {
+        let screenBase = transform.toScreen(basePosition)
+        let screenPoint = CGPoint(x: screenBase.x + translation.width, y: screenBase.y + translation.height)
+        return transform.toLogical(screenPoint)
     }
 
     var body: some View {
@@ -137,19 +169,17 @@ private struct DraggableItemView: View {
             DragGesture(minimumDistance: 0)
                 .onChanged { value in
                     dragTranslation = value.translation
+                    let liveZone = FridgeLayout.zone(for: logicalPoint(forScreenTranslation: value.translation))
+                    onDragChanged(liveZone)
                 }
                 .onEnded { value in
                     let distance = hypot(value.translation.width, value.translation.height)
                     dragTranslation = .zero
+                    onDragChanged(nil)
                     if distance < 8 {
                         onTap()
                     } else {
-                        let screenBase = transform.toScreen(basePosition)
-                        let finalScreenPosition = CGPoint(
-                            x: screenBase.x + value.translation.width,
-                            y: screenBase.y + value.translation.height
-                        )
-                        onDragEnded(transform.toLogical(finalScreenPosition))
+                        onDragEnded(logicalPoint(forScreenTranslation: value.translation))
                     }
                 }
         )
