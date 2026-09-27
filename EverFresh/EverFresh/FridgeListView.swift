@@ -16,7 +16,19 @@ struct FridgeListView: View {
         }
         return Self.orderedZones.compactMap { zone in
             guard let zoneItems = grouped[zone], !zoneItems.isEmpty else { return nil }
-            return (zone, zoneItems)
+            return (zone, zoneItems.sorted(by: Self.byExpiryAscending))
+        }
+    }
+
+    /// Soonest-expiring first; items with no expiryDate sort after every item that has one.
+    private static func byExpiryAscending(_ lhs: ScannedItem, _ rhs: ScannedItem) -> Bool {
+        switch (StrapiDate.date(from: lhs.expiryDate), StrapiDate.date(from: rhs.expiryDate)) {
+        case let (l?, r?):
+            return l < r
+        case (nil, _):
+            return false
+        case (_, nil):
+            return true
         }
     }
 
