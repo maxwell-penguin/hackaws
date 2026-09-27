@@ -1,8 +1,19 @@
 import CoreGraphics
 
 /// Named regions inside the default two-door fridge template.
-enum FridgeZone: CaseIterable {
+enum FridgeZone: CaseIterable, Hashable {
     case topShelf, middleShelf, bottomShelf, leftDoorBin, rightDoorBin, crisperDrawer
+
+    var displayName: String {
+        switch self {
+        case .topShelf: return "Top Shelf"
+        case .middleShelf: return "Middle Shelf"
+        case .bottomShelf: return "Bottom Shelf"
+        case .leftDoorBin: return "Left Door Bin"
+        case .rightDoorBin: return "Right Door Bin"
+        case .crisperDrawer: return "Crisper Drawer"
+        }
+    }
 }
 
 /// A fixed logical coordinate space representing one default fridge layout. Item positions
