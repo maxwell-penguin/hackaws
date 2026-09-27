@@ -1,7 +1,9 @@
 import SwiftUI
 
-/// Free-form draggable canvas of active items. Positions come from Strapi's positionX/positionY
-/// when present; unplaced items get a grid fallback that's only persisted once the user drags them.
+/// Free-form draggable canvas of active items, laid out over a two-door fridge illustration.
+/// Item positions are stored in FridgeLayout's fixed logical space (not raw screen pixels),
+/// then scaled to fit whatever device this is shown on — that's what keeps a saved position
+/// consistent across different screen sizes.
 struct FridgeCanvasView: View {
     var onScanTapped: () -> Void = {}
 
@@ -36,24 +38,28 @@ struct FridgeCanvasView: View {
                     }
                 } else {
                     GeometryReader { geometry in
+                        let transform = CanvasTransform(fitting: FridgeLayout.size, in: geometry.size)
+
                         ZStack {
+                            FridgeIllustrationView(scale: transform.scale, offset: transform.offset)
+
                             ForEach(items) { item in
                                 DraggableItemView(
                                     item: item,
                                     basePosition: positions[item.documentId] ?? .zero,
+                                    transform: transform,
                                     onTap: {
                                         selectedItem = item
                                         isDetailPresented = true
                                     },
-                                    onDragEnded: { newPosition in
-                                        positions[item.documentId] = newPosition
-                                        Task { await persistPosition(item: item, point: newPosition) }
+                                    onDragEnded: { newLogicalPosition in
+                                        positions[item.documentId] = newLogicalPosition
+                                        Task { await persistPosition(item: item, point: newLogicalPosition) }
                                     }
                                 )
                             }
                         }
                         .frame(width: geometry.size.width, height: geometry.size.height)
-                        .onAppear { assignFallbackPositions(in: geometry.size) }
                     }
                 }
             }
@@ -77,16 +83,18 @@ struct FridgeCanvasView: View {
         defer { isLoading = false }
         do {
             items = try await ItemService.fetchActiveItems()
+            assignFallbackPositions()
         } catch {
             errorMessage = error.localizedDescription
         }
     }
 
-    private func assignFallbackPositions(in size: CGSize) {
-        guard size.width > 0, size.height > 0 else { return }
-        let columns = max(1, Int(size.width / 90))
-        let columnWidth = size.width / CGFloat(columns)
-        let rowHeight: CGFloat = 100
+    /// Fills in a grid position (in FridgeLayout's logical space) for any item that doesn't
+    /// have one yet. Never persisted until the user actually drags the item.
+    private func assignFallbackPositions() {
+        let columns = 3
+        let columnWidth = FridgeLayout.size.width / CGFloat(columns)
+        let rowHeight: CGFloat = 90
 
         for (index, item) in items.enumerated() {
             guard positions[item.documentId] == nil else { continue }
@@ -110,16 +118,42 @@ struct FridgeCanvasView: View {
     }
 }
 
+/// Maps between FridgeLayout's fixed logical space and this view's actual on-screen size —
+/// a uniform "aspect fit" scale, centered.
+private struct CanvasTransform {
+    let scale: CGFloat
+    let offset: CGSize
+
+    init(fitting logicalSize: CGSize, in containerSize: CGSize) {
+        let rawScale = min(containerSize.width / logicalSize.width, containerSize.height / logicalSize.height)
+        scale = rawScale.isFinite && rawScale > 0 ? rawScale : 1
+        offset = CGSize(
+            width: (containerSize.width - logicalSize.width * scale) / 2,
+            height: (containerSize.height - logicalSize.height * scale) / 2
+        )
+    }
+
+    func toScreen(_ point: CGPoint) -> CGPoint {
+        CGPoint(x: point.x * scale + offset.width, y: point.y * scale + offset.height)
+    }
+
+    func toLogical(_ point: CGPoint) -> CGPoint {
+        CGPoint(x: (point.x - offset.width) / scale, y: (point.y - offset.height) / scale)
+    }
+}
+
 private struct DraggableItemView: View {
     let item: ScannedItem
     let basePosition: CGPoint
+    let transform: CanvasTransform
     let onTap: () -> Void
     let onDragEnded: (CGPoint) -> Void
 
     @State private var dragTranslation: CGSize = .zero
 
     private var displayPosition: CGPoint {
-        CGPoint(x: basePosition.x + dragTranslation.width, y: basePosition.y + dragTranslation.height)
+        let screenBase = transform.toScreen(basePosition)
+        return CGPoint(x: screenBase.x + dragTranslation.width, y: screenBase.y + dragTranslation.height)
     }
 
     var body: some View {
@@ -128,6 +162,11 @@ private struct DraggableItemView: View {
                 .font(.system(size: 26))
                 .frame(width: 56, height: 56)
                 .background(.thinMaterial, in: Circle())
+                .overlay(alignment: .topTrailing) {
+                    if let daysLeft = StrapiDate.daysUntil(item.expiryDate) {
+                        expiryBadge(daysLeft: daysLeft)
+                    }
+                }
             Text(item.name)
                 .font(.caption2)
                 .lineLimit(1)
@@ -145,14 +184,30 @@ private struct DraggableItemView: View {
                     if distance < 8 {
                         onTap()
                     } else {
-                        let newPosition = CGPoint(
-                            x: basePosition.x + value.translation.width,
-                            y: basePosition.y + value.translation.height
+                        let screenBase = transform.toScreen(basePosition)
+                        let finalScreenPosition = CGPoint(
+                            x: screenBase.x + value.translation.width,
+                            y: screenBase.y + value.translation.height
                         )
-                        onDragEnded(newPosition)
+                        onDragEnded(transform.toLogical(finalScreenPosition))
                     }
                 }
         )
+    }
+
+    private func expiryBadge(daysLeft: Int) -> some View {
+        let color: Color = daysLeft <= 0 ? .red : (daysLeft <= 3 ? .orange : .secondary)
+        return HStack(spacing: 2) {
+            Image(systemName: "clock.fill")
+                .font(.system(size: 8))
+            Text(daysLeft <= 0 ? "!" : "\(daysLeft)")
+                .font(.system(size: 9, weight: .bold))
+        }
+        .padding(.horizontal, 4)
+        .padding(.vertical, 2)
+        .background(color, in: Capsule())
+        .foregroundStyle(.white)
+        .offset(x: 8, y: -8)
     }
 }
 
