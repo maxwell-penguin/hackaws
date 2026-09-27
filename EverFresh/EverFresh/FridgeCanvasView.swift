@@ -10,13 +10,22 @@ enum FridgeViewMode: String, CaseIterable {
 /// disagree — dragging in Visual mode updates this array's cached position so List mode
 /// reflects it immediately, without waiting on a refetch.
 struct FridgeCanvasView: View {
-    var onScanTapped: () -> Void = {}
+    private static let modeDefaultsKey = "FridgeCanvasView.mode"
+
+    var onScanTapped: () -> Void
 
     @EnvironmentObject private var appState: AppState
     @State private var items: [ScannedItem] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
-    @State private var mode: FridgeViewMode = .visual
+    @State private var mode: FridgeViewMode
+
+    init(onScanTapped: @escaping () -> Void = {}) {
+        self.onScanTapped = onScanTapped
+        let savedMode = UserDefaults.standard.string(forKey: Self.modeDefaultsKey)
+            .flatMap(FridgeViewMode.init(rawValue:))
+        _mode = State(initialValue: savedMode ?? .visual)
+    }
 
     var body: some View {
         NavigationStack {
@@ -65,6 +74,9 @@ struct FridgeCanvasView: View {
             .onChange(of: appState.selectedTab) { _, newTab in
                 guard newTab == .fridge else { return }
                 Task { await load() }
+            }
+            .onChange(of: mode) { _, newMode in
+                UserDefaults.standard.set(newMode.rawValue, forKey: Self.modeDefaultsKey)
             }
         }
     }
