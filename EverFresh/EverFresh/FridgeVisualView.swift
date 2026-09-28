@@ -7,6 +7,7 @@ import SwiftUI
 struct FridgeVisualView: View {
     let items: [ScannedItem]
     let onPositionChanged: (String, CGPoint) -> Void
+    let onConsume: (ScannedItem) -> Void
 
     @State private var positions: [String: CGPoint] = [:]
     @State private var selectedItem: ScannedItem?
@@ -41,7 +42,8 @@ struct FridgeVisualView: View {
                             let adjusted = adjustedPosition(for: item.documentId, near: newLogicalPosition)
                             positions[item.documentId] = adjusted
                             Task { await persistPosition(item: item, point: adjusted) }
-                        }
+                        },
+                        onConsume: { onConsume(item) }
                     )
                 }
             }
@@ -133,8 +135,11 @@ private struct DraggableItemView: View {
     let onTap: () -> Void
     let onDragChanged: (FridgeZone?) -> Void
     let onDragEnded: (CGPoint) -> Void
+    let onConsume: () -> Void
 
     @State private var dragTranslation: CGSize = .zero
+    @State private var didLongPress = false
+    @State private var showConsumeConfirmation = false
 
     private var displayPosition: CGPoint {
         let screenBase = transform.toScreen(basePosition)
@@ -176,6 +181,12 @@ private struct DraggableItemView: View {
                     let distance = hypot(value.translation.width, value.translation.height)
                     dragTranslation = .zero
                     onDragChanged(nil)
+                    // A long press already handled this touch (the confirmation dialog is up,
+                    // or was just dismissed) — don't also treat the release as a tap or a drop.
+                    if didLongPress {
+                        didLongPress = false
+                        return
+                    }
                     if distance < 8 {
                         onTap()
                     } else {
@@ -183,11 +194,31 @@ private struct DraggableItemView: View {
                     }
                 }
         )
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.5)
+                .onEnded { _ in
+                    didLongPress = true
+                    showConsumeConfirmation = true
+                }
+        )
+        .confirmationDialog(
+            "Mark \"\(item.name)\" as Consumed?",
+            isPresented: $showConsumeConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Mark as Consumed", role: .destructive) {
+                didLongPress = false
+                onConsume()
+            }
+            Button("Cancel", role: .cancel) {
+                didLongPress = false
+            }
+        }
     }
 }
 
 #Preview {
     NavigationStack {
-        FridgeVisualView(items: [], onPositionChanged: { _, _ in })
+        FridgeVisualView(items: [], onPositionChanged: { _, _ in }, onConsume: { _ in })
     }
 }

@@ -95,6 +95,16 @@ enum ItemService {
         try Self.checkOK(data: data, response: response)
     }
 
+    static func markConsumed(documentId: String) async throws {
+        var request = URLRequest(url: URL(string: "\(Config.strapiBaseURL)/api/items/\(documentId)")!)
+        request.httpMethod = "PUT"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["data": ["status": "consumed"]])
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try Self.checkOK(data: data, response: response)
+    }
+
     static func fetchExpiringSoon(withinDays days: Int) async throws -> [ScannedItem] {
         let cutoff = StrapiDate.string(from: Calendar.current.date(byAdding: .day, value: days, to: Date()) ?? Date())
 

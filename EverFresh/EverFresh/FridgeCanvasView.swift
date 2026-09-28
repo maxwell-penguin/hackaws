@@ -62,9 +62,13 @@ struct FridgeCanvasView: View {
                     } else {
                         switch mode {
                         case .visual:
-                            FridgeVisualView(items: items, onPositionChanged: updateLocalPosition)
+                            FridgeVisualView(
+                                items: items,
+                                onPositionChanged: updateLocalPosition,
+                                onConsume: markConsumed
+                            )
                         case .list:
-                            FridgeListView(items: items)
+                            FridgeListView(items: items, onConsume: markConsumed)
                         }
                     }
                 }
@@ -96,6 +100,16 @@ struct FridgeCanvasView: View {
         guard let index = items.firstIndex(where: { $0.documentId == documentId }) else { return }
         items[index].positionX = point.x
         items[index].positionY = point.y
+    }
+
+    /// Shared by both view modes: mark consumed on the server, then drop it from the local
+    /// array so it disappears immediately without a full refetch. Best-effort — if the PATCH
+    /// fails, the item still vanishes locally and simply reappears as active on the next reload.
+    private func markConsumed(_ item: ScannedItem) {
+        Task {
+            try? await ItemService.markConsumed(documentId: item.documentId)
+            items.removeAll { $0.documentId == item.documentId }
+        }
     }
 }
 

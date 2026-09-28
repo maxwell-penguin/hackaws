@@ -5,6 +5,7 @@ import SwiftUI
 /// ephemeral fallback layout. Tapping still navigates to detail; there's no dragging here.
 struct FridgeListView: View {
     let items: [ScannedItem]
+    let onConsume: (ScannedItem) -> Void
 
     private static let orderedZones: [FridgeZone] = [
         .topShelf, .middleShelf, .bottomShelf, .leftDoorBin, .rightDoorBin, .crisperDrawer,
@@ -42,6 +43,11 @@ struct FridgeListView: View {
                         } label: {
                             FridgeListRow(item: item)
                         }
+                        .swipeActions {
+                            Button("Mark as Consumed", role: .destructive) {
+                                onConsume(item)
+                            }
+                        }
                     }
                 }
             }
@@ -68,6 +74,6 @@ private struct FridgeListRow: View {
 
 #Preview {
     NavigationStack {
-        FridgeListView(items: [])
+        FridgeListView(items: [], onConsume: { _ in })
     }
 }
