@@ -1,13 +1,21 @@
 import SwiftUI
 import PhotosUI
 
+enum ScanMode: String, CaseIterable {
+    case foodItem = "Food Item"
+    case receipt = "Receipt"
+}
+
 struct ItemScanView: View {
+    @State private var mode: ScanMode = .foodItem
     @State private var isShowingSourceOptions = false
     @State private var isShowingCamera = false
     @State private var isShowingPhotosPicker = false
     @State private var photosPickerItem: PhotosPickerItem?
     @State private var isUploading = false
     @State private var scannedItem: ScannedItem?
+    @State private var receiptItems: [ScannedItem] = []
+    @State private var isShowingReceiptReview = false
     @State private var showError = false
     @State private var errorMessage = ""
 
@@ -15,24 +23,53 @@ struct ItemScanView: View {
         UIImagePickerController.isSourceTypeAvailable(.camera)
     }
 
+    private var promptText: String {
+        switch mode {
+        case .foodItem: return "Scan a food item to add it to your fridge."
+        case .receipt: return "Scan a receipt to add everything on it at once."
+        }
+    }
+
+    private var buttonLabel: String {
+        switch mode {
+        case .foodItem: return "Scan Item"
+        case .receipt: return "Scan Receipt"
+        }
+    }
+
+    private var uploadingMessage: String {
+        switch mode {
+        case .foodItem: return "Scanning item…"
+        case .receipt: return "Scanning receipt…"
+        }
+    }
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 20) {
+                Picker("Mode", selection: $mode) {
+                    ForEach(ScanMode.allCases, id: \.self) { mode in
+                        Text(mode.rawValue).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
+
                 Spacer()
                 if isUploading {
-                    ProgressView("Scanning item…")
+                    ProgressView(uploadingMessage)
                 } else {
-                    Image(systemName: "camera.viewfinder")
+                    Image(systemName: mode == .foodItem ? "camera.viewfinder" : "receipt")
                         .font(.system(size: 64))
                         .foregroundStyle(.secondary)
-                    Text("Scan a food item to add it to your fridge.")
+                    Text(promptText)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
                     Button {
                         isShowingSourceOptions = true
                     } label: {
-                        Label("Scan Item", systemImage: "camera")
+                        Label(buttonLabel, systemImage: "camera")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
@@ -76,6 +113,9 @@ struct ItemScanView: View {
             .sheet(item: $scannedItem) { item in
                 ItemConfirmationView(item: item)
             }
+            .sheet(isPresented: $isShowingReceiptReview) {
+                ReceiptReviewFlow(items: receiptItems)
+            }
             .alert("Couldn't scan item", isPresented: $showError) {
                 Button("OK", role: .cancel) {}
             } message: {
@@ -88,7 +128,13 @@ struct ItemScanView: View {
         isUploading = true
         defer { isUploading = false }
         do {
-            scannedItem = try await ItemService.scanItem(image: image)
+            switch mode {
+            case .foodItem:
+                scannedItem = try await ItemService.scanItem(image: image)
+            case .receipt:
+                receiptItems = try await ItemService.scanReceipt(image: image)
+                isShowingReceiptReview = true
+            }
         } catch {
             errorMessage = error.localizedDescription
             showError = true

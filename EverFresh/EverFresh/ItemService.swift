@@ -56,6 +56,24 @@ enum ItemService {
         return try JSONDecoder().decode(ScanResponse.self, from: data).item
     }
 
+    static func scanReceipt(image: UIImage) async throws -> [ScannedItem] {
+        guard let jpegData = image.jpegData(compressionQuality: 0.8) else {
+            throw ItemServiceError.invalidImage
+        }
+
+        var form = MultipartFormData()
+        form.addFile(fieldName: "image", fileName: "receipt.jpg", mimeType: "image/jpeg", fileData: jpegData)
+
+        var request = URLRequest(url: URL(string: "\(Config.baseURL)/api/receipts")!)
+        request.httpMethod = "POST"
+        request.setValue("multipart/form-data; boundary=\(form.boundary)", forHTTPHeaderField: "Content-Type")
+        request.httpBody = form.finalize()
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try Self.checkOK(data: data, response: response)
+        return try JSONDecoder().decode(ReceiptScanResponse.self, from: data).items
+    }
+
     static func saveItem(_ item: ScannedItem) async throws {
         var request = URLRequest(url: URL(string: "\(Config.strapiBaseURL)/api/items/\(item.documentId)")!)
         request.httpMethod = "PUT"
