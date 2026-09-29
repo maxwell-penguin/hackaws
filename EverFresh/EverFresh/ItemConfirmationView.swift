@@ -26,31 +26,14 @@ struct ItemConfirmationView: View {
     var body: some View {
         NavigationStack {
             Form {
-                if let photoUrlString = original.photoUrl, let photoUrl = URL(string: photoUrlString) {
-                    Section {
-                        AsyncImage(url: photoUrl) { image in
-                            image.resizable().scaledToFit()
-                        } placeholder: {
-                            ProgressView()
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: 200)
-                    }
-                }
-                Section("Item") {
-                    TextField("Name", text: $name)
-                    TextField("Description", text: $description, axis: .vertical)
-                    TextField("Category", text: $category)
-                }
-                Section("Details") {
-                    DatePicker("Expires", selection: $expiryDate, displayedComponents: .date)
-                    HStack {
-                        Text("Price Paid")
-                        Spacer()
-                        TextField("0.00", text: $priceText)
-                            .keyboardType(.decimalPad)
-                            .multilineTextAlignment(.trailing)
-                    }
-                }
+                ItemEditFormFields(
+                    photoUrl: original.photoUrl,
+                    name: $name,
+                    description: $description,
+                    category: $category,
+                    expiryDate: $expiryDate,
+                    priceText: $priceText
+                )
             }
             .navigationTitle("Confirm Item")
             .navigationBarTitleDisplayMode(.inline)
