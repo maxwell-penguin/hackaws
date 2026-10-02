@@ -23,21 +23,29 @@ struct ItemEditFormFields: View {
                     .frame(maxWidth: .infinity, maxHeight: 200)
                 }
             }
-            Section("Item") {
+            Section {
                 TextField("Name", text: $name)
+                    .font(.everFreshItemName)
                 TextField("Description", text: $description, axis: .vertical)
                 TextField("Category", text: $category)
+            } header: {
+                Text("Item").everFreshSectionHeader()
             }
-            Section("Details") {
+            .listRowBackground(Color.frost)
+            Section {
                 DatePicker("Expires", selection: $expiryDate, displayedComponents: .date)
                 HStack {
                     Text("Price Paid")
                     Spacer()
                     TextField("0.00", text: $priceText)
+                        .font(.everFreshStamp)
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)
                 }
+            } header: {
+                Text("Details").everFreshSectionHeader()
             }
+            .listRowBackground(Color.frost)
         }
     }
 }

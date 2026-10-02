@@ -35,6 +35,8 @@ struct ItemConfirmationView: View {
                     priceText: $priceText
                 )
             }
+            .scrollContentBackground(.hidden)
+            .background(Color.enamel)
             .navigationTitle("Confirm Item")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

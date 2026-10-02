@@ -19,6 +19,7 @@ struct ExpiringSoonView: View {
                         Text(errorMessage)
                     } actions: {
                         Button("Retry") { Task { await load() } }
+                            .buttonStyle(.borderedProminent)
                     }
                 } else if items.isEmpty {
                     ContentUnavailableView(
@@ -33,9 +34,12 @@ struct ExpiringSoonView: View {
                         } label: {
                             ExpiringSoonRow(item: item)
                         }
+                        .listRowBackground(Color.frost)
                     }
+                    .scrollContentBackground(.hidden)
                 }
             }
+            .background(Color.enamel)
             .navigationTitle("Expiring Soon")
             .onAppear { Task { await load() } }
         }
@@ -66,22 +70,23 @@ private struct ExpiringSoonRow: View {
     }
 
     private var color: Color {
-        guard let daysLeft else { return .secondary }
-        return daysLeft <= 0 ? .red : .orange
+        guard let daysLeft else { return .shelfSteel }
+        return ExpiryBadge.urgencyColor(daysLeft: daysLeft) ?? .compressor
     }
 
     var body: some View {
         HStack {
             VStack(alignment: .leading) {
                 Text(item.name)
-                    .font(.headline)
+                    .font(.everFreshItemName)
+                    .tracking(-0.2)
                 Text(item.category ?? "Uncategorized")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .font(.everFreshBody)
+                    .foregroundStyle(Color.shelfSteel)
             }
             Spacer()
             Text(label)
-                .font(.caption.weight(.semibold))
+                .font(.everFreshStamp)
                 .foregroundStyle(color)
         }
     }

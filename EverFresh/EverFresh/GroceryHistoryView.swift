@@ -17,6 +17,7 @@ struct GroceryHistoryView: View {
                         Text(errorMessage)
                     } actions: {
                         Button("Retry") { Task { await load() } }
+                            .buttonStyle(.borderedProminent)
                     }
                 } else if items.isEmpty {
                     ContentUnavailableView(
@@ -27,19 +28,24 @@ struct GroceryHistoryView: View {
                 } else {
                     List {
                         ForEach(dayGroups, id: \.label) { group in
-                            Section(group.label) {
+                            Section {
                                 ForEach(group.items) { item in
                                     NavigationLink {
                                         ItemDetailView(item: item)
                                     } label: {
                                         GroceryHistoryRow(item: item)
                                     }
+                                    .listRowBackground(Color.frost)
                                 }
+                            } header: {
+                                Text(group.label).everFreshSectionHeader()
                             }
                         }
                     }
+                    .scrollContentBackground(.hidden)
                 }
             }
+            .background(Color.enamel)
             .navigationTitle("History")
             .onAppear { Task { await load() } }
         }
@@ -98,18 +104,19 @@ private struct GroceryHistoryRow: View {
     var body: some View {
         HStack {
             Image(systemName: sourceIcon)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.shelfSteel)
                 .frame(width: 20)
             VStack(alignment: .leading) {
                 Text(item.name)
-                    .font(.headline)
+                    .font(.everFreshItemName)
+                    .tracking(-0.2)
                 Text(item.category ?? "Uncategorized")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .font(.everFreshBody)
+                    .foregroundStyle(Color.shelfSteel)
             }
             Spacer()
             Text(priceLabel)
-                .foregroundStyle(.secondary)
+                .font(.everFreshStamp)
         }
     }
 }

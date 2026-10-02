@@ -61,9 +61,9 @@ struct ItemScanView: View {
                 } else {
                     Image(systemName: mode == .foodItem ? "camera.viewfinder" : "receipt")
                         .font(.system(size: 64))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.shelfSteel)
                     Text(promptText)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.shelfSteel)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
                     Button {
@@ -78,6 +78,7 @@ struct ItemScanView: View {
                 }
                 Spacer()
             }
+            .background(Color.enamel)
             .navigationTitle("Add Item")
             .confirmationDialog("Add a photo", isPresented: $isShowingSourceOptions, titleVisibility: .visible) {
                 if isCameraAvailable {

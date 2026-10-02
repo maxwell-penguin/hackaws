@@ -42,6 +42,7 @@ struct ReceiptReviewFlow: View {
                     .transition(Self.cardTransition)
                 }
             }
+            .background(Color.enamel)
             .navigationTitle(navigationTitle)
             .navigationBarTitleDisplayMode(.inline)
         }
@@ -93,6 +94,7 @@ private struct ReceiptItemCardView: View {
                     priceText: $priceText
                 )
             }
+            .scrollContentBackground(.hidden)
 
             Button {
                 Task { await confirm() }
@@ -155,9 +157,10 @@ private struct ReceiptSummaryView: View {
                             Image(systemName: CategoryIcons.symbol(for: item.category ?? "other"))
                                 .font(.system(size: 26))
                                 .frame(width: 56, height: 56)
-                                .background(.thinMaterial, in: Circle())
+                                .background(Color.frost, in: Circle())
+                                .overlay(Circle().strokeBorder(Color.shelfSteel, lineWidth: 1))
                             Text(item.name)
-                                .font(.caption)
+                                .font(.system(.caption, weight: .heavy))
                                 .multilineTextAlignment(.center)
                                 .lineLimit(2)
                         }

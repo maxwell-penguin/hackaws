@@ -25,12 +25,12 @@ struct FridgeIllustrationView: View {
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 20)
-                .fill(Color(.secondarySystemBackground))
+                .fill(Color.frost)
                 .frame(width: outerRect.width, height: outerRect.height)
                 .position(x: outerRect.midX, y: outerRect.midY)
 
             RoundedRectangle(cornerRadius: 20)
-                .strokeBorder(Color.secondary.opacity(0.6), lineWidth: 3)
+                .strokeBorder(Color.shelfSteel, lineWidth: 3)
                 .frame(width: outerRect.width, height: outerRect.height)
                 .position(x: outerRect.midX, y: outerRect.midY)
 
@@ -53,10 +53,10 @@ struct FridgeIllustrationView: View {
     private func highlightOverlay(for zone: FridgeZone) -> some View {
         let rect = screenRect(FridgeLayout.rects[zone]!)
         return RoundedRectangle(cornerRadius: 10)
-            .fill(Color.accentColor.opacity(0.2))
+            .fill(Color.freezerUltramarine.opacity(0.2))
             .overlay(
                 RoundedRectangle(cornerRadius: 10)
-                    .strokeBorder(Color.accentColor, lineWidth: 2.5)
+                    .strokeBorder(Color.freezerUltramarine, lineWidth: 2.5)
             )
             .frame(width: max(rect.width - 6, 0), height: max(rect.height - 6, 0))
             .position(x: rect.midX, y: rect.midY)
@@ -66,7 +66,7 @@ struct FridgeIllustrationView: View {
     private func shelfDivider(atLogicalY y: CGFloat) -> some View {
         let screenY = y * scale + offset.height
         return Rectangle()
-            .fill(Color.secondary.opacity(0.4))
+            .fill(Color.shelfSteel)
             .frame(width: outerRect.width - 12, height: 1.5)
             .position(x: outerRect.midX, y: screenY)
     }
@@ -74,10 +74,10 @@ struct FridgeIllustrationView: View {
     private func zoneOutline(_ zone: FridgeZone, cornerRadius: CGFloat) -> some View {
         let rect = screenRect(FridgeLayout.rects[zone]!)
         return RoundedRectangle(cornerRadius: cornerRadius)
-            .fill(Color.secondary.opacity(0.08))
+            .fill(Color.shelfSteel.opacity(0.12))
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius)
-                    .strokeBorder(Color.secondary.opacity(0.5), lineWidth: 2)
+                    .strokeBorder(Color.shelfSteel, lineWidth: 2)
             )
             .frame(width: max(rect.width - 8, 0), height: max(rect.height - 8, 0))
             .position(x: rect.midX, y: rect.midY)
@@ -87,5 +87,5 @@ struct FridgeIllustrationView: View {
 #Preview {
     FridgeIllustrationView(scale: 1, offset: .zero)
         .frame(width: FridgeLayout.size.width, height: FridgeLayout.size.height)
-        .background(Color(.systemBackground))
+        .background(Color.enamel)
 }

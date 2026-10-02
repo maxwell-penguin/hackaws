@@ -49,6 +49,7 @@ struct FridgeCanvasView: View {
                             Text(errorMessage)
                         } actions: {
                             Button("Retry") { Task { await load() } }
+                                .buttonStyle(.borderedProminent)
                         }
                     } else if items.isEmpty {
                         ContentUnavailableView {
@@ -57,6 +58,7 @@ struct FridgeCanvasView: View {
                             Text("Scan your first item to see it here.")
                         } actions: {
                             Button("Scan an Item", action: onScanTapped)
+                                .buttonStyle(.borderedProminent)
                         }
                     } else {
                         switch mode {
@@ -72,6 +74,7 @@ struct FridgeCanvasView: View {
                     }
                 }
             }
+            .background(Color.enamel)
             .navigationTitle("Fridge")
             .onAppear { Task { await load() } }
             .onChange(of: mode) { _, newMode in

@@ -32,6 +32,7 @@ struct RecipeSuggestionsView: View {
                         Text(message)
                     } actions: {
                         Button("Retry") { Task { await load() } }
+                            .buttonStyle(.borderedProminent)
                     }
 
                 case .loaded(let recipes) where recipes.isEmpty:
@@ -52,6 +53,7 @@ struct RecipeSuggestionsView: View {
                     }
                 }
             }
+            .background(Color.enamel)
             .navigationTitle("Recipes")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
@@ -98,27 +100,28 @@ private struct RecipeCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(recipe.name)
-                .font(.headline)
+                .font(.everFreshItemName)
+                .tracking(-0.2)
 
             if !recipe.usesExpiring.isEmpty {
                 HStack(alignment: .top, spacing: 4) {
                     Image(systemName: "clock.badge.exclamationmark")
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Color.soonAmber)
                     Text("Uses: \(recipe.usesExpiring.joined(separator: ", "))")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(.everFreshBody)
+                        .foregroundStyle(Color.shelfSteel)
                 }
             }
 
             if !recipe.missingIngredients.isEmpty {
                 Text("Missing: \(recipe.missingIngredients.joined(separator: ", "))")
-                    .font(.caption)
-                    .foregroundStyle(.red)
+                    .font(.everFreshBody)
+                    .foregroundStyle(Color.useByRed)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .background(Color.frost, in: RoundedRectangle(cornerRadius: 12))
     }
 }
 

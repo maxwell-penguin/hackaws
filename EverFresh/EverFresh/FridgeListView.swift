@@ -36,7 +36,7 @@ struct FridgeListView: View {
     var body: some View {
         List {
             ForEach(sections, id: \.zone) { section in
-                Section(section.zone.displayName) {
+                Section {
                     ForEach(section.items) { item in
                         NavigationLink {
                             ItemDetailView(item: item)
@@ -48,10 +48,14 @@ struct FridgeListView: View {
                                 onConsume(item)
                             }
                         }
+                        .listRowBackground(Color.frost)
                     }
+                } header: {
+                    Text(section.zone.displayName).everFreshSectionHeader()
                 }
             }
         }
+        .scrollContentBackground(.hidden)
     }
 }
 
@@ -61,9 +65,11 @@ private struct FridgeListRow: View {
     var body: some View {
         HStack {
             Image(systemName: CategoryIcons.symbol(for: item.category ?? "other"))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.shelfSteel)
                 .frame(width: 24)
             Text(item.name)
+                .font(.everFreshItemName)
+                .tracking(-0.2)
             Spacer()
             if let daysLeft = StrapiDate.daysUntil(item.expiryDate) {
                 ExpiryBadge(daysLeft: daysLeft)

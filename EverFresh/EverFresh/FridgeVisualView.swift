@@ -157,7 +157,8 @@ private struct DraggableItemView: View {
             Image(systemName: CategoryIcons.symbol(for: item.category ?? "other"))
                 .font(.system(size: 26))
                 .frame(width: 56, height: 56)
-                .background(.thinMaterial, in: Circle())
+                .background(Color.frost, in: Circle())
+                .overlay(Circle().strokeBorder(Color.shelfSteel, lineWidth: 1))
                 .overlay(alignment: .topTrailing) {
                     if let daysLeft = StrapiDate.daysUntil(item.expiryDate) {
                         ExpiryBadge(daysLeft: daysLeft)
@@ -165,7 +166,7 @@ private struct DraggableItemView: View {
                     }
                 }
             Text(item.name)
-                .font(.caption2)
+                .font(.system(.caption2, weight: .heavy))
                 .lineLimit(1)
                 .frame(maxWidth: 72)
         }

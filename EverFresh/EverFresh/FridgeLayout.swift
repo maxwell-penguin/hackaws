@@ -6,12 +6,12 @@ enum FridgeZone: CaseIterable, Hashable {
 
     var displayName: String {
         switch self {
-        case .topShelf: return "Top Shelf"
-        case .middleShelf: return "Middle Shelf"
-        case .bottomShelf: return "Bottom Shelf"
-        case .leftDoorBin: return "Left Door Bin"
-        case .rightDoorBin: return "Right Door Bin"
-        case .crisperDrawer: return "Crisper Drawer"
+        case .topShelf: return "Top shelf"
+        case .middleShelf: return "Middle shelf"
+        case .bottomShelf: return "Bottom shelf"
+        case .leftDoorBin: return "Left door bin"
+        case .rightDoorBin: return "Right door bin"
+        case .crisperDrawer: return "Crisper drawer"
         }
     }
 }

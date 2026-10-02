@@ -26,8 +26,8 @@ struct ItemDetailView: View {
     }
 
     private var expiryColor: Color {
-        guard let days = StrapiDate.daysUntil(item.expiryDate) else { return .secondary }
-        return days < 0 ? .red : .secondary
+        guard let days = StrapiDate.daysUntil(item.expiryDate) else { return .shelfSteel }
+        return ExpiryBadge.urgencyColor(daysLeft: days) ?? .compressor
     }
 
     private var priceLabel: String {
@@ -47,47 +47,63 @@ struct ItemDetailView: View {
                 }
             }
 
-            Section("Item") {
-                LabeledContent("Name", value: item.name)
+            Section {
+                LabeledContent("Name") {
+                    Text(item.name).font(.everFreshItemName).tracking(-0.2)
+                }
                 if let description = item.description, !description.isEmpty {
                     LabeledContent("Description", value: description)
                 }
                 LabeledContent("Category", value: item.category ?? "Uncategorized")
+            } header: {
+                Text("Item").everFreshSectionHeader()
             }
+            .listRowBackground(Color.frost)
 
-            Section("Details") {
+            Section {
                 LabeledContent("Expires") {
-                    Text(expiryLabel).foregroundStyle(expiryColor)
+                    Text(expiryLabel).font(.everFreshStamp).foregroundStyle(expiryColor)
                 }
-                LabeledContent("Price Paid", value: priceLabel)
+                LabeledContent("Price Paid") {
+                    Text(priceLabel).font(.everFreshStamp)
+                }
+            } header: {
+                Text("Details").everFreshSectionHeader()
             }
+            .listRowBackground(Color.frost)
 
-            Section("Quantity") {
+            Section {
                 HStack {
                     Text("\(Int(quantity))% left")
-                        .font(.headline)
-                        .monospacedDigit()
+                        .font(.everFreshStamp)
                     Spacer()
                     if isSaving {
                         ProgressView()
                             .controlSize(.small)
                     } else if showSaved {
                         Label("Saved", systemImage: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
-                            .font(.caption)
+                            .foregroundStyle(Color.freezerUltramarine)
+                            .font(.everFreshBody)
                     }
                 }
                 Slider(value: $quantity, in: 0...100, step: 5) { isEditing in
                     guard !isEditing else { return }
                     Task { await updateQuantity() }
                 }
+            } header: {
+                Text("Quantity").everFreshSectionHeader()
             }
+            .listRowBackground(Color.frost)
 
             Section {
                 Button("Delete Item", role: .destructive) { showDeleteConfirm = true }
+                    .foregroundStyle(Color.useByRed)
                     .frame(maxWidth: .infinity)
             }
+            .listRowBackground(Color.frost)
         }
+        .scrollContentBackground(.hidden)
+        .background(Color.enamel)
         .navigationTitle(item.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -182,6 +198,8 @@ private struct ItemEditSheet: View {
                     priceText: $priceText
                 )
             }
+            .scrollContentBackground(.hidden)
+            .background(Color.enamel)
             .navigationTitle("Edit Item")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
