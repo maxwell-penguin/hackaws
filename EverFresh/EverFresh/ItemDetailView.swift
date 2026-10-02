@@ -8,6 +8,10 @@ struct ItemDetailView: View {
     @State private var showSaved = false
     @State private var showError = false
     @State private var errorMessage = ""
+    @State private var showEdit = false
+    @State private var showDeleteConfirm = false
+    @State private var showDeleteError = false
+    @Environment(\.dismiss) private var dismiss
 
     init(item: ScannedItem) {
         _item = State(initialValue: item)
@@ -78,13 +82,46 @@ struct ItemDetailView: View {
                     Task { await updateQuantity() }
                 }
             }
+
+            Section {
+                Button("Delete Item", role: .destructive) { showDeleteConfirm = true }
+                    .frame(maxWidth: .infinity)
+            }
         }
         .navigationTitle(item.name)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button("Edit") { showEdit = true }
+            }
+        }
+        .sheet(isPresented: $showEdit) {
+            ItemEditSheet(item: item) { item = $0 }
+        }
+        .confirmationDialog("Delete this item?", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
+            Button("Delete Item", role: .destructive) { Task { await delete() } }
+        } message: {
+            Text("This can't be undone.")
+        }
         .alert("Couldn't update quantity", isPresented: $showError) {
             Button("OK", role: .cancel) {}
         } message: {
             Text(errorMessage)
+        }
+        .alert("Couldn't delete item", isPresented: $showDeleteError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(errorMessage)
+        }
+    }
+
+    private func delete() async {
+        do {
+            try await ItemService.deleteItem(documentId: item.documentId)
+            dismiss()
+        } catch {
+            errorMessage = error.localizedDescription
+            showDeleteError = true
         }
     }
 
@@ -101,6 +138,86 @@ struct ItemDetailView: View {
             showSaved = false
         } catch {
             quantity = item.quantity ?? 0
+            errorMessage = error.localizedDescription
+            showError = true
+        }
+    }
+}
+
+/// Edit sheet for ItemDetailView: ItemEditFormFields plus Cancel/Save chrome.
+private struct ItemEditSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    let original: ScannedItem
+    let onSaved: (ScannedItem) -> Void
+
+    @State private var name: String
+    @State private var description: String
+    @State private var category: String
+    @State private var expiryDate: Date
+    @State private var priceText: String
+    @State private var isSaving = false
+    @State private var showError = false
+    @State private var errorMessage = ""
+
+    init(item: ScannedItem, onSaved: @escaping (ScannedItem) -> Void) {
+        original = item
+        self.onSaved = onSaved
+        _name = State(initialValue: item.name)
+        _description = State(initialValue: item.description ?? "")
+        _category = State(initialValue: item.category ?? "")
+        _expiryDate = State(initialValue: StrapiDate.date(from: item.expiryDate) ?? Date())
+        _priceText = State(initialValue: item.pricePaid.map { String($0) } ?? "")
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                ItemEditFormFields(
+                    photoUrl: original.photoUrl,
+                    name: $name,
+                    description: $description,
+                    category: $category,
+                    expiryDate: $expiryDate,
+                    priceText: $priceText
+                )
+            }
+            .navigationTitle("Edit Item")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") { Task { await save() } }
+                        .disabled(isSaving || name.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+            .disabled(isSaving)
+            .alert("Couldn't save item", isPresented: $showError) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(errorMessage)
+            }
+        }
+    }
+
+    private func save() async {
+        isSaving = true
+        defer { isSaving = false }
+
+        var updated = original
+        updated.name = name
+        updated.description = description
+        updated.category = category
+        updated.expiryDate = StrapiDate.string(from: expiryDate)
+        updated.pricePaid = Double(priceText)
+
+        do {
+            try await ItemService.saveItem(updated)
+            onSaved(updated)
+            dismiss()
+        } catch {
             errorMessage = error.localizedDescription
             showError = true
         }

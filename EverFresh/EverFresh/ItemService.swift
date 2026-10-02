@@ -123,6 +123,14 @@ enum ItemService {
         try Self.checkOK(data: data, response: response)
     }
 
+    static func deleteItem(documentId: String) async throws {
+        var request = URLRequest(url: URL(string: "\(Config.strapiBaseURL)/api/items/\(documentId)")!)
+        request.httpMethod = "DELETE"
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try Self.checkOK(data: data, response: response)
+    }
+
     static func fetchExpiringSoon(withinDays days: Int) async throws -> [ScannedItem] {
         let cutoff = StrapiDate.string(from: Calendar.current.date(byAdding: .day, value: days, to: Date()) ?? Date())
 
