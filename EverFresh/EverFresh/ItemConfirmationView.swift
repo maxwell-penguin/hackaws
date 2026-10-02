@@ -74,7 +74,7 @@ struct ItemConfirmationView: View {
         updated.quantity = 100
 
         do {
-            try await ItemService.saveItem(updated)
+            _ = try await ItemService.saveItem(updated)  // nothing displayed after save; it just switches tabs
             appState.selectedTab = .fridge
             dismiss()
         } catch {

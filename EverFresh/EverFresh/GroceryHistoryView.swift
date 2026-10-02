@@ -41,7 +41,7 @@ struct GroceryHistoryView: View {
                 }
             }
             .navigationTitle("History")
-            .task { await load() }
+            .onAppear { Task { await load() } }
         }
     }
 

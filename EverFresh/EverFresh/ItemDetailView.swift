@@ -214,8 +214,7 @@ private struct ItemEditSheet: View {
         updated.pricePaid = Double(priceText)
 
         do {
-            try await ItemService.saveItem(updated)
-            onSaved(updated)
+            onSaved(try await ItemService.saveItem(updated))
             dismiss()
         } catch {
             errorMessage = error.localizedDescription

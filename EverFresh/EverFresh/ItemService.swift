@@ -74,7 +74,8 @@ enum ItemService {
         return try JSONDecoder().decode(ReceiptScanResponse.self, from: data).items
     }
 
-    static func saveItem(_ item: ScannedItem) async throws {
+    /// Returns the item as persisted by the server.
+    static func saveItem(_ item: ScannedItem) async throws -> ScannedItem {
         var request = URLRequest(url: URL(string: "\(Config.strapiBaseURL)/api/items/\(item.documentId)")!)
         request.httpMethod = "PUT"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -91,6 +92,7 @@ enum ItemService {
 
         let (data, response) = try await URLSession.shared.data(for: request)
         try Self.checkOK(data: data, response: response)
+        return try JSONDecoder().decode(StrapiItemResponse.self, from: data).data
     }
 
     static func updateQuantity(documentId: String, quantity: Double) async throws {

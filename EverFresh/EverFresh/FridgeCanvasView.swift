@@ -14,7 +14,6 @@ struct FridgeCanvasView: View {
 
     var onScanTapped: () -> Void
 
-    @EnvironmentObject private var appState: AppState
     @State private var items: [ScannedItem] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
@@ -74,11 +73,7 @@ struct FridgeCanvasView: View {
                 }
             }
             .navigationTitle("Fridge")
-            .task { await load() }
-            .onChange(of: appState.selectedTab) { _, newTab in
-                guard newTab == .fridge else { return }
-                Task { await load() }
-            }
+            .onAppear { Task { await load() } }
             .onChange(of: mode) { _, newMode in
                 UserDefaults.standard.set(newMode.rawValue, forKey: Self.modeDefaultsKey)
             }

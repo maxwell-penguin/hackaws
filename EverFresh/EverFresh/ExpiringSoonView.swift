@@ -37,7 +37,7 @@ struct ExpiringSoonView: View {
                 }
             }
             .navigationTitle("Expiring Soon")
-            .task { await load() }
+            .onAppear { Task { await load() } }
         }
     }
 

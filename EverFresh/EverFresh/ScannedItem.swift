@@ -72,6 +72,11 @@ struct ReceiptScanResponse: Codable {
     let items: [ScannedItem]
 }
 
+/// Strapi's single-document endpoints (PUT /api/items/{documentId}) wrap the item as { "data": {...} }.
+struct StrapiItemResponse: Decodable {
+    let data: ScannedItem
+}
+
 /// Strapi's collection endpoints wrap results as { "data": [...], "meta": {...} }.
 ///
 /// Decodes each element independently so one malformed record (e.g. an unexpected null)

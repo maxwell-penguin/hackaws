@@ -132,8 +132,7 @@ private struct ReceiptItemCardView: View {
         updated.quantity = 100
 
         do {
-            try await ItemService.saveItem(updated)
-            onConfirmed(updated)
+            onConfirmed(try await ItemService.saveItem(updated))
         } catch {
             errorMessage = error.localizedDescription
             showError = true
