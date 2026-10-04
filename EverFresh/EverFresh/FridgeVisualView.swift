@@ -160,10 +160,8 @@ private struct DraggableItemView: View {
                 .background(Color.frost, in: Circle())
                 .overlay(Circle().strokeBorder(Color.shelfSteel, lineWidth: 1))
                 .overlay(alignment: .topTrailing) {
-                    if let daysLeft = StrapiDate.daysUntil(item.expiryDate) {
-                        ExpiryBadge(daysLeft: daysLeft)
-                            .offset(x: 8, y: -8)
-                    }
+                    DateTape(expiryDate: item.expiryDate, style: .compact)
+                        .offset(x: 12, y: -6)
                 }
             Text(item.name)
                 .font(.system(.caption2, weight: .heavy))

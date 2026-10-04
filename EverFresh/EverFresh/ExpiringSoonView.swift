@@ -60,20 +60,6 @@ struct ExpiringSoonView: View {
 private struct ExpiringSoonRow: View {
     let item: ScannedItem
 
-    private var daysLeft: Int? { StrapiDate.daysUntil(item.expiryDate) }
-
-    private var label: String {
-        guard let daysLeft else { return item.expiryDate ?? "Unknown" }
-        if daysLeft < 0 { return "Expired" }
-        if daysLeft == 0 { return "Today" }
-        return "\(daysLeft)d left"
-    }
-
-    private var color: Color {
-        guard let daysLeft else { return .shelfSteel }
-        return ExpiryBadge.urgencyColor(daysLeft: daysLeft) ?? .compressor
-    }
-
     var body: some View {
         HStack {
             VStack(alignment: .leading) {
@@ -85,9 +71,7 @@ private struct ExpiringSoonRow: View {
                     .foregroundStyle(Color.shelfSteel)
             }
             Spacer()
-            Text(label)
-                .font(.everFreshStamp)
-                .foregroundStyle(color)
+            DateTape(expiryDate: item.expiryDate, style: .compact)
         }
     }
 }

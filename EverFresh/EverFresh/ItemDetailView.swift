@@ -18,18 +18,6 @@ struct ItemDetailView: View {
         _quantity = State(initialValue: item.quantity ?? 0)
     }
 
-    private var expiryLabel: String {
-        guard let days = StrapiDate.daysUntil(item.expiryDate) else { return item.expiryDate ?? "Unknown" }
-        if days < 0 { return "Expired" }
-        if days == 0 { return "Expires today" }
-        return "\(days) day\(days == 1 ? "" : "s") left"
-    }
-
-    private var expiryColor: Color {
-        guard let days = StrapiDate.daysUntil(item.expiryDate) else { return .shelfSteel }
-        return ExpiryBadge.urgencyColor(daysLeft: days) ?? .compressor
-    }
-
     private var priceLabel: String {
         item.pricePaid.map { $0.formatted(.currency(code: "USD")) } ?? "—"
     }
@@ -60,10 +48,17 @@ struct ItemDetailView: View {
             }
             .listRowBackground(Color.frost)
 
-            Section {
-                LabeledContent("Expires") {
-                    Text(expiryLabel).font(.everFreshStamp).foregroundStyle(expiryColor)
+            if StrapiDate.daysUntil(item.expiryDate) != nil {
+                Section {
+                    HStack {
+                        DateTape(expiryDate: item.expiryDate, style: .full)
+                        Spacer()
+                    }
+                    .listRowBackground(Color.clear)
                 }
+            }
+
+            Section {
                 LabeledContent("Price Paid") {
                     Text(priceLabel).font(.everFreshStamp)
                 }

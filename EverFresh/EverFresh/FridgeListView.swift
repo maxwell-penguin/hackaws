@@ -71,9 +71,7 @@ private struct FridgeListRow: View {
                 .font(.everFreshItemName)
                 .tracking(-0.2)
             Spacer()
-            if let daysLeft = StrapiDate.daysUntil(item.expiryDate) {
-                ExpiryBadge(daysLeft: daysLeft)
-            }
+            DateTape(expiryDate: item.expiryDate, style: .compact)
         }
     }
 }
