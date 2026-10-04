@@ -1,91 +1,86 @@
 import SwiftUI
 
-/// A simple, clean illustration matching FridgeLayout's zones — outer frame, shelf dividers,
-/// door bin outlines, and a crisper drawer outline. Not photorealistic, just recognizable.
-/// Draws in screen space: pass the same scale/offset FridgeCanvasView computed for item
-/// positions so the drawing and the draggable icons line up.
+/// Line-art fridge drawn entirely from FridgeLayout's geometry (no layout math lives here).
+/// Pass the same scale/offset FridgeVisualView uses for item positions so the drawing and the
+/// icons line up. Line widths and label size are screen points, not scaled.
 struct FridgeIllustrationView: View {
     let scale: CGFloat
     let offset: CGSize
     var highlightedZone: FridgeZone? = nil
 
-    private func screenRect(_ rect: CGRect) -> CGRect {
-        CGRect(
-            x: rect.minX * scale + offset.width,
-            y: rect.minY * scale + offset.height,
-            width: rect.width * scale,
-            height: rect.height * scale
-        )
-    }
-
-    private var outerRect: CGRect {
-        screenRect(CGRect(origin: .zero, size: FridgeLayout.size))
-    }
+    private static let lineWidth: CGFloat = 1.5
 
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 20)
-                .fill(Color.frost)
-                .frame(width: outerRect.width, height: outerRect.height)
-                .position(x: outerRect.midX, y: outerRect.midY)
+        Canvas { context, _ in
+            let transform = CGAffineTransform(translationX: offset.width, y: offset.height).scaledBy(x: scale, y: scale)
+            let steel = GraphicsContext.Shading.color(Color.shelfSteel)
 
-            RoundedRectangle(cornerRadius: 20)
-                .strokeBorder(Color.shelfSteel, lineWidth: 3)
-                .frame(width: outerRect.width, height: outerRect.height)
-                .position(x: outerRect.midX, y: outerRect.midY)
+            func stroke(_ path: Path, width: CGFloat = Self.lineWidth, shading: GraphicsContext.Shading? = nil) {
+                context.stroke(path.applying(transform), with: shading ?? steel, lineWidth: width)
+            }
+            func line(_ x0: CGFloat, _ x1: CGFloat, y: CGFloat) -> Path {
+                var p = Path()
+                p.move(to: CGPoint(x: x0, y: y))
+                p.addLine(to: CGPoint(x: x1, y: y))
+                return p
+            }
 
-            shelfDivider(atLogicalY: FridgeLayout.rects[.middleShelf]!.minY)
-            shelfDivider(atLogicalY: FridgeLayout.rects[.bottomShelf]!.minY)
-            shelfDivider(atLogicalY: FridgeLayout.rects[.crisperDrawer]!.minY)
+            // Body and seam.
+            let body = FridgeLayout.bodyRect
+            stroke(Path(roundedRect: body, cornerRadius: 20))
+            var seam = Path()
+            seam.move(to: CGPoint(x: FridgeLayout.seamX, y: body.minY))
+            seam.addLine(to: CGPoint(x: FridgeLayout.seamX, y: body.maxY))
+            stroke(seam)
 
-            zoneOutline(.leftDoorBin, cornerRadius: 8)
-            zoneOutline(.rightDoorBin, cornerRadius: 8)
-            zoneOutline(.crisperDrawer, cornerRadius: 12)
+            // Glass shelf rails: a 1.5pt line with a thin 0.75pt line 3pt below.
+            for zone in [FridgeZone.topShelf, .middleShelf, .bottomShelf] {
+                let rect = FridgeLayout.rects[zone]!
+                let y = FridgeLayout.railY(for: zone)
+                stroke(line(rect.minX + 6, rect.maxX - 6, y: y))
+                stroke(line(rect.minX + 6, rect.maxX - 6, y: y + 3), width: 0.75)
+            }
 
-            if let highlightedZone {
-                highlightOverlay(for: highlightedZone)
+            // Crisper: outlined drawer with a short handle at top center.
+            let crisper = FridgeLayout.rects[.crisperDrawer]!
+            stroke(Path(roundedRect: crisper.insetBy(dx: 6, dy: 4), cornerRadius: 12))
+            stroke(line(crisper.midX - 10, crisper.midX + 10, y: crisper.minY + 9))
+
+            // Door bins: a body with a slightly lipped, rounded top.
+            for zone in [FridgeZone.doorBinTop, .doorBinMiddle, .doorBinBottom] {
+                let rect = FridgeLayout.rects[zone]!.insetBy(dx: 6, dy: 2)
+                stroke(Path(roundedRect: CGRect(x: rect.minX, y: rect.minY + 5, width: rect.width, height: rect.height - 5),
+                            cornerRadius: 8))
+                stroke(Path(roundedRect: CGRect(x: rect.minX - 2, y: rect.minY, width: rect.width + 4, height: 6),
+                            cornerRadius: 3))
+            }
+
+            // Bottle rack: tall rounded rect with one bar across.
+            let rack = FridgeLayout.rects[.bottleRack]!.insetBy(dx: 6, dy: 2)
+            stroke(Path(roundedRect: rack, cornerRadius: 10))
+            let barY = rack.minY + FridgeLayout.labelStripHeight + (rack.height - FridgeLayout.labelStripHeight) / 2
+            stroke(line(rack.minX + 6, rack.maxX - 6, y: barY))
+
+            // Zone names.
+            for zone in FridgeLayout.displayOrder {
+                let rect = FridgeLayout.rects[zone]!
+                let label = Text(zone.displayName)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.shelfSteel)
+                let origin = CGPoint(x: rect.minX + 14, y: rect.minY + FridgeLayout.labelStripHeight / 2 + 2)
+                context.draw(label, at: origin.applying(transform), anchor: .leading)
+            }
+
+            if let zone = highlightedZone {
+                let rect = FridgeLayout.rects[zone]!.insetBy(dx: 2, dy: 2)
+                stroke(Path(roundedRect: rect, cornerRadius: 10), shading: .color(Color.freezerUltramarine))
             }
         }
-    }
-
-    /// Drawn on top of everything else so a drag highlights its target zone regardless of
-    /// whether that zone normally has its own outline (shelves don't, bins/drawer do).
-    private func highlightOverlay(for zone: FridgeZone) -> some View {
-        let rect = screenRect(FridgeLayout.rects[zone]!)
-        return RoundedRectangle(cornerRadius: 10)
-            .fill(Color.freezerUltramarine.opacity(0.2))
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .strokeBorder(Color.freezerUltramarine, lineWidth: 2.5)
-            )
-            .frame(width: max(rect.width - 6, 0), height: max(rect.height - 6, 0))
-            .position(x: rect.midX, y: rect.midY)
-            .animation(.easeInOut(duration: 0.15), value: highlightedZone)
-    }
-
-    private func shelfDivider(atLogicalY y: CGFloat) -> some View {
-        let screenY = y * scale + offset.height
-        return Rectangle()
-            .fill(Color.shelfSteel)
-            .frame(width: outerRect.width - 12, height: 1.5)
-            .position(x: outerRect.midX, y: screenY)
-    }
-
-    private func zoneOutline(_ zone: FridgeZone, cornerRadius: CGFloat) -> some View {
-        let rect = screenRect(FridgeLayout.rects[zone]!)
-        return RoundedRectangle(cornerRadius: cornerRadius)
-            .fill(Color.shelfSteel.opacity(0.12))
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius)
-                    .strokeBorder(Color.shelfSteel, lineWidth: 2)
-            )
-            .frame(width: max(rect.width - 8, 0), height: max(rect.height - 8, 0))
-            .position(x: rect.midX, y: rect.midY)
     }
 }
 
 #Preview {
-    FridgeIllustrationView(scale: 1, offset: .zero)
+    FridgeIllustrationView(scale: 1, offset: .zero, highlightedZone: .crisperDrawer)
         .frame(width: FridgeLayout.size.width, height: FridgeLayout.size.height)
         .background(Color.enamel)
 }

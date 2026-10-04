@@ -1,50 +1,36 @@
 import SwiftUI
 
-/// The draggable canvas mode — items positioned over a two-door fridge illustration. Positions
-/// are stored in FridgeLayout's fixed logical space (not raw screen pixels), then scaled to fit
-/// whatever device this is shown on — that's what keeps a saved position consistent across
-/// different screen sizes.
+/// The canvas mode — items sitting in their assigned slots over the fridge illustration.
+/// Slot centers live in FridgeLayout's fixed logical space and are scaled to fit the device.
+/// Dragging is disabled for now; tap opens detail, long-press offers Mark as Consumed.
 struct FridgeVisualView: View {
     let items: [ScannedItem]
-    let onPositionChanged: (String, CGPoint) -> Void
+    let assignments: [String: SlotAssignment]
     let onConsume: (ScannedItem) -> Void
 
-    @State private var positions: [String: CGPoint] = [:]
     @State private var selectedItem: ScannedItem?
     @State private var isDetailPresented = false
-    @State private var highlightedZone: FridgeZone?
 
     var body: some View {
         GeometryReader { geometry in
             let transform = CanvasTransform(fitting: FridgeLayout.size, in: geometry.size)
 
             ZStack {
-                FridgeIllustrationView(
-                    scale: transform.scale,
-                    offset: transform.offset,
-                    highlightedZone: highlightedZone
-                )
+                FridgeIllustrationView(scale: transform.scale, offset: transform.offset)
 
                 ForEach(items) { item in
-                    DraggableItemView(
-                        item: item,
-                        basePosition: positions[item.documentId] ?? .zero,
-                        transform: transform,
-                        onTap: {
-                            selectedItem = item
-                            isDetailPresented = true
-                        },
-                        onDragChanged: { zone in
-                            highlightedZone = zone
-                        },
-                        onDragEnded: { newLogicalPosition in
-                            highlightedZone = nil
-                            let adjusted = adjustedPosition(for: item.documentId, near: newLogicalPosition)
-                            positions[item.documentId] = adjusted
-                            Task { await persistPosition(item: item, point: adjusted) }
-                        },
-                        onConsume: { onConsume(item) }
-                    )
+                    if let assignment = assignments[item.documentId] {
+                        FridgeItemIcon(
+                            item: item,
+                            center: transform.toScreen(assignment.center),
+                            scale: transform.scale,
+                            onTap: {
+                                selectedItem = item
+                                isDetailPresented = true
+                            },
+                            onConsume: { onConsume(item) }
+                        )
+                    }
                 }
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
@@ -54,53 +40,6 @@ struct FridgeVisualView: View {
                 ItemDetailView(item: selectedItem)
             }
         }
-        .task(id: items.map(\.documentId)) {
-            assignFallbackPositions()
-        }
-    }
-
-    /// Fills in a grid position (in FridgeLayout's logical space) for any item that doesn't
-    /// have one yet. Never persisted until the user actually drags the item.
-    private func assignFallbackPositions() {
-        let columns = 3
-        let columnWidth = FridgeLayout.size.width / CGFloat(columns)
-        let rowHeight: CGFloat = 90
-
-        for (index, item) in items.enumerated() {
-            guard positions[item.documentId] == nil else { continue }
-            if let x = item.positionX, let y = item.positionY {
-                positions[item.documentId] = CGPoint(x: x, y: y)
-            } else {
-                let row = index / columns
-                let column = index % columns
-                positions[item.documentId] = CGPoint(
-                    x: columnWidth * (CGFloat(column) + 0.5),
-                    y: rowHeight * (CGFloat(row) + 0.5) + 40
-                )
-            }
-        }
-    }
-
-    /// If the drop point is too close to another item's current position, nudge it by a small
-    /// fixed offset so icons in the same zone don't stack exactly on top of each other. This
-    /// only avoids near-exact overlap — it isn't a full grid-packing pass.
-    private func adjustedPosition(for documentId: String, near point: CGPoint) -> CGPoint {
-        let overlapThreshold: CGFloat = 28
-        let nudge: CGFloat = 22
-
-        let overlapsExisting = positions.contains { key, otherPoint in
-            key != documentId && hypot(otherPoint.x - point.x, otherPoint.y - point.y) < overlapThreshold
-        }
-        guard overlapsExisting else { return point }
-
-        return CGPoint(x: point.x + nudge, y: point.y + nudge)
-    }
-
-    private func persistPosition(item: ScannedItem, point: CGPoint) async {
-        // Best-effort: the drag already moved it locally, so a failed save just means it
-        // reverts to the last saved position next time the fridge is loaded.
-        try? await ItemService.updatePosition(documentId: item.documentId, x: point.x, y: point.y)
-        onPositionChanged(item.documentId, point)
     }
 }
 
@@ -128,96 +67,50 @@ struct CanvasTransform {
     }
 }
 
-private struct DraggableItemView: View {
+private struct FridgeItemIcon: View {
     let item: ScannedItem
-    let basePosition: CGPoint
-    let transform: CanvasTransform
+    let center: CGPoint
+    let scale: CGFloat
     let onTap: () -> Void
-    let onDragChanged: (FridgeZone?) -> Void
-    let onDragEnded: (CGPoint) -> Void
     let onConsume: () -> Void
 
-    @State private var dragTranslation: CGSize = .zero
-    @State private var didLongPress = false
     @State private var showConsumeConfirmation = false
 
-    private var displayPosition: CGPoint {
-        let screenBase = transform.toScreen(basePosition)
-        return CGPoint(x: screenBase.x + dragTranslation.width, y: screenBase.y + dragTranslation.height)
-    }
-
-    private func logicalPoint(forScreenTranslation translation: CGSize) -> CGPoint {
-        let screenBase = transform.toScreen(basePosition)
-        let screenPoint = CGPoint(x: screenBase.x + translation.width, y: screenBase.y + translation.height)
-        return transform.toLogical(screenPoint)
-    }
+    private var diameter: CGFloat { FridgeLayout.iconSize * scale }
 
     var body: some View {
-        VStack(spacing: 4) {
-            Image(systemName: CategoryIcons.symbol(for: item.category ?? "other"))
-                .font(.system(size: 26))
-                .frame(width: 56, height: 56)
-                .background(Color.frost, in: Circle())
-                .overlay(Circle().strokeBorder(Color.shelfSteel, lineWidth: 1))
-                .overlay(alignment: .topTrailing) {
-                    DateTape(expiryDate: item.expiryDate, style: .compact)
-                        .offset(x: 12, y: -6)
-                }
-            Text(item.name)
-                .font(.system(.caption2, weight: .heavy))
-                .lineLimit(1)
-                .frame(maxWidth: 72)
-        }
-        .position(displayPosition)
-        .gesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { value in
-                    dragTranslation = value.translation
-                    let liveZone = FridgeLayout.zone(for: logicalPoint(forScreenTranslation: value.translation))
-                    onDragChanged(liveZone)
-                }
-                .onEnded { value in
-                    let distance = hypot(value.translation.width, value.translation.height)
-                    dragTranslation = .zero
-                    onDragChanged(nil)
-                    // A long press already handled this touch (the confirmation dialog is up,
-                    // or was just dismissed) — don't also treat the release as a tap or a drop.
-                    if didLongPress {
-                        didLongPress = false
-                        return
-                    }
-                    if distance < 8 {
-                        onTap()
-                    } else {
-                        onDragEnded(logicalPoint(forScreenTranslation: value.translation))
-                    }
-                }
-        )
-        .simultaneousGesture(
-            LongPressGesture(minimumDuration: 0.5)
-                .onEnded { _ in
-                    didLongPress = true
-                    showConsumeConfirmation = true
-                }
-        )
-        .confirmationDialog(
-            "Mark \"\(item.name)\" as Consumed?",
-            isPresented: $showConsumeConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("Mark as Consumed", role: .destructive) {
-                didLongPress = false
-                onConsume()
+        Image(systemName: CategoryIcons.symbol(for: item.category ?? "other"))
+            .font(.system(size: diameter * 0.46))
+            .frame(width: diameter, height: diameter)
+            .background(Color.frost, in: Circle())
+            .overlay(Circle().strokeBorder(Color.shelfSteel, lineWidth: 1))
+            .overlay(alignment: .topTrailing) {
+                DateTape(expiryDate: item.expiryDate, style: .compact)
+                    .offset(x: 12, y: -6)
             }
-            Button("Cancel", role: .cancel) {
-                didLongPress = false
+            .overlay(alignment: .bottom) {
+                Text(item.name)
+                    .font(.system(.caption2, weight: .heavy))
+                    .lineLimit(1)
+                    .frame(maxWidth: 72)
+                    .offset(y: 14)
             }
-        }
+            .position(center)
+            .onTapGesture(perform: onTap)
+            .onLongPressGesture(minimumDuration: 0.5) { showConsumeConfirmation = true }
+            .confirmationDialog(
+                "Mark \"\(item.name)\" as Consumed?",
+                isPresented: $showConsumeConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Mark as Consumed", role: .destructive, action: onConsume)
+                Button("Cancel", role: .cancel) {}
+            }
     }
 }
 
 #Preview {
     NavigationStack {
-        FridgeVisualView(items: [], onPositionChanged: { _, _ in }, onConsume: { _ in })
+        FridgeVisualView(items: [], assignments: [:], onConsume: { _ in })
     }
 }

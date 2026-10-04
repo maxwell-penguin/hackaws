@@ -1,21 +1,15 @@
 import SwiftUI
 
-/// Read-only, zone-grouped view of the same items FridgeVisualView shows — grouped by each
-/// item's actual saved position (falling back to (0,0) when unset), not the visual canvas's
-/// ephemeral fallback layout. Tapping still navigates to detail; there's no dragging here.
+/// Read-only, zone-grouped view of the same items FridgeVisualView shows, grouped by the
+/// same slot assignments so the two modes always agree. Tapping navigates to detail.
 struct FridgeListView: View {
     let items: [ScannedItem]
+    let assignments: [String: SlotAssignment]
     let onConsume: (ScannedItem) -> Void
 
-    private static let orderedZones: [FridgeZone] = [
-        .topShelf, .middleShelf, .bottomShelf, .leftDoorBin, .rightDoorBin, .crisperDrawer,
-    ]
-
     private var sections: [(zone: FridgeZone, items: [ScannedItem])] {
-        let grouped = Dictionary(grouping: items) { item in
-            FridgeLayout.zone(for: CGPoint(x: item.positionX ?? 0, y: item.positionY ?? 0))
-        }
-        return Self.orderedZones.compactMap { zone in
+        let grouped = Dictionary(grouping: items) { assignments[$0.documentId]?.zone ?? FridgeLayout.displayOrder[0] }
+        return FridgeLayout.displayOrder.compactMap { zone in
             guard let zoneItems = grouped[zone], !zoneItems.isEmpty else { return nil }
             return (zone, zoneItems.sorted(by: Self.byExpiryAscending))
         }
@@ -78,6 +72,6 @@ private struct FridgeListRow: View {
 
 #Preview {
     NavigationStack {
-        FridgeListView(items: [], onConsume: { _ in })
+        FridgeListView(items: [], assignments: [:], onConsume: { _ in })
     }
 }

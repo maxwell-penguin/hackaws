@@ -5,10 +5,9 @@ enum FridgeViewMode: String, CaseIterable {
     case list = "List"
 }
 
-/// Top-level Fridge tab container. Fetches active items once and hosts either the draggable
-/// visual canvas or a zone-grouped list, both fed from this same array so they can never
-/// disagree — dragging in Visual mode updates this array's cached position so List mode
-/// reflects it immediately, without waiting on a refetch.
+/// Top-level Fridge tab container. Fetches active items, resolves each into a slot with
+/// FridgeLayout.resolve, and hosts either the visual canvas or a zone-grouped list, both fed
+/// the same items and assignments so they can never disagree.
 struct FridgeCanvasView: View {
     private static let modeDefaultsKey = "FridgeCanvasView.mode"
 
@@ -17,6 +16,8 @@ struct FridgeCanvasView: View {
     @State private var items: [ScannedItem] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var assignments: [String: SlotAssignment] = [:]
+    @State private var migrationTask: Task<Void, Never>?
     @State private var mode: FridgeViewMode
 
     init(onScanTapped: @escaping () -> Void = {}) {
@@ -63,24 +64,29 @@ struct FridgeCanvasView: View {
                     } else {
                         switch mode {
                         case .visual:
-                            FridgeVisualView(
-                                items: items,
-                                onPositionChanged: updateLocalPosition,
-                                onConsume: markConsumed
-                            )
+                            FridgeVisualView(items: items, assignments: assignments, onConsume: markConsumed)
                         case .list:
-                            FridgeListView(items: items, onConsume: markConsumed)
+                            FridgeListView(items: items, assignments: assignments, onConsume: markConsumed)
                         }
                     }
                 }
             }
             .background(Color.enamel)
             .navigationTitle("Fridge")
+            .navigationSubtitle(subtitle)
             .onAppear { Task { await load() } }
             .onChange(of: mode) { _, newMode in
                 UserDefaults.standard.set(newMode.rawValue, forKey: Self.modeDefaultsKey)
             }
         }
+    }
+
+    private var subtitle: String {
+        guard !items.isEmpty else { return "" }
+        let soon = items.filter {
+            StrapiDate.daysUntil($0.expiryDate).map { ExpiryUrgency.from(daysLeft: $0) != .fresh } ?? false
+        }.count
+        return "\(items.count) item\(items.count == 1 ? "" : "s"), \(soon) need\(soon == 1 ? "s" : "") using soon"
     }
 
     private func load() async {
@@ -89,15 +95,34 @@ struct FridgeCanvasView: View {
         defer { isLoading = false }
         do {
             items = try await ItemService.fetchActiveItems()
+            assignments = FridgeLayout.resolve(items: items)
+            persistAssignments()
         } catch {
             errorMessage = error.localizedDescription
         }
     }
 
-    private func updateLocalPosition(documentId: String, point: CGPoint) {
-        guard let index = items.firstIndex(where: { $0.documentId == documentId }) else { return }
-        items[index].positionX = point.x
-        items[index].positionY = point.y
+    /// Writes each item's assigned slot center back to the server when it differs from what's
+    /// stored, one at a time and best-effort, so Visual and List agree after the next reload too.
+    private func persistAssignments() {
+        migrationTask?.cancel()
+        let pending = items.compactMap { item -> (String, CGPoint)? in
+            guard let assignment = assignments[item.documentId] else { return nil }
+            if let x = item.positionX, let y = item.positionY,
+               abs(x - assignment.center.x) <= 0.5, abs(y - assignment.center.y) <= 0.5 { return nil }
+            return (item.documentId, assignment.center)
+        }
+        guard !pending.isEmpty else { return }
+        migrationTask = Task {
+            for (documentId, center) in pending {
+                if Task.isCancelled { return }
+                try? await ItemService.updatePosition(documentId: documentId, x: center.x, y: center.y)
+                if let index = items.firstIndex(where: { $0.documentId == documentId }) {
+                    items[index].positionX = center.x
+                    items[index].positionY = center.y
+                }
+            }
+        }
     }
 
     /// Shared by both view modes: mark consumed on the server, then drop it from the local
