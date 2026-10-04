@@ -71,10 +71,21 @@ struct FridgeIllustrationView: View {
                 context.draw(label, at: origin.applying(transform), anchor: .leading)
             }
 
-            if let zone = highlightedZone {
-                let rect = FridgeLayout.rects[zone]!.insetBy(dx: 2, dy: 2)
-                stroke(Path(roundedRect: rect, cornerRadius: 10), shading: .color(Color.freezerUltramarine))
+        }
+        .overlay {
+            // Every zone always has its outline; opacity alone shows/hides it so it can fade.
+            ZStack {
+                ForEach(FridgeLayout.displayOrder, id: \.self) { zone in
+                    let rect = FridgeLayout.rects[zone]!.insetBy(dx: 2, dy: 2)
+                    RoundedRectangle(cornerRadius: 10 * scale)
+                        .strokeBorder(Color.freezerUltramarine, lineWidth: Self.lineWidth)
+                        .frame(width: rect.width * scale, height: rect.height * scale)
+                        .position(x: rect.midX * scale + offset.width, y: rect.midY * scale + offset.height)
+                        .opacity(highlightedZone == zone ? 1 : 0)
+                }
             }
+            .animation(Motion.zoneHighlightFade, value: highlightedZone)
+            .allowsHitTesting(false)
         }
     }
 }

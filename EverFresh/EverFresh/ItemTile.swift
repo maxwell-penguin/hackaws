@@ -7,6 +7,7 @@ struct ItemTile: View {
     let item: ScannedItem
     let size: CGFloat
     let showsName: Bool
+    var isLifted: Bool = false
 
     private var cornerRadius: CGFloat { 10 * size / FridgeLayout.iconSize }
 
@@ -49,6 +50,6 @@ struct ItemTile: View {
         face
             .frame(width: size, height: size)
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
-            .shadow(color: .black.opacity(0.18), radius: 1.5, y: 2)
+            .shadow(color: .black.opacity(isLifted ? 0.28 : 0.18), radius: isLifted ? 8 : 1.5, y: isLifted ? 6 : 2)
     }
 }

@@ -95,9 +95,14 @@ private struct FridgeItemTile: View {
     let onMove: (SlotAssignment) -> Void
     let onConsume: () -> Void
 
-    private static let snapSpring = Animation.spring(response: 0.3, dampingFraction: 0.75)
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var dragTranslation: CGSize = .zero
+    /// Lifted once the drag passes the tap threshold; cleared as the tile lands.
+    @State private var isLifted = false
+    /// Stays true until the landing animation has fully finished, so the tile never dips under neighbors mid-flight.
+    @State private var isRaised = false
+    @State private var isDragInProgress = false
     @State private var didLongPress = false
     @State private var showConsumeConfirmation = false
 
@@ -108,30 +113,41 @@ private struct FridgeItemTile: View {
         CGPoint(x: screenBase.x + dragTranslation.width, y: screenBase.y + dragTranslation.height)
     }
 
-    private var isDragging: Bool { dragTranslation != .zero }
+    private var snapAnimation: Animation { Motion.resolve(Motion.snapSpring, reduceMotion: reduceMotion) }
 
     var body: some View {
-        ItemTile(item: item, size: side, showsName: true)
+        ItemTile(item: item, size: side, showsName: true, isLifted: isLifted)
             .overlay(alignment: .topTrailing) {
                 DateTape(expiryDate: item.expiryDate, style: .compact)
                     .offset(x: 12, y: -6)
             }
+            .scaleEffect(isLifted && !reduceMotion ? Motion.liftScale : 1)
             .position(displayPosition)
-            .zIndex(isDragging ? 1 : 0)
+            .zIndex(isRaised ? 1 : 0)
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { value in
+                        if !isDragInProgress {
+                            isDragInProgress = true
+                            Haptics.prepare()
+                        }
                         dragTranslation = value.translation
+                        if !isLifted, hypot(value.translation.width, value.translation.height) >= 8 {
+                            isRaised = true
+                            withAnimation(Motion.resolve(Motion.liftSpring, reduceMotion: reduceMotion)) { isLifted = true }
+                            Haptics.lift()
+                        }
                         onDragChanged(FridgeLayout.zone(for: transform.toLogical(displayPosition)))
                     }
                     .onEnded { value in
                         let distance = hypot(value.translation.width, value.translation.height)
+                        isDragInProgress = false
                         onDragChanged(nil)
                         // A long press already handled this touch (the confirmation dialog is up,
                         // or was just dismissed) — don't also treat the release as a tap or a drop.
                         if didLongPress {
                             didLongPress = false
-                            withAnimation(Self.snapSpring) { dragTranslation = .zero }
+                            land()
                             return
                         }
                         if distance < 8 {
@@ -167,7 +183,7 @@ private struct FridgeItemTile: View {
     /// Snap to the nearest free slot in the zone under the tile, or spring back if it's full.
     private func drop(from visual: CGPoint) {
         guard let target = dropAssignment(transform.toLogical(visual)) else {
-            withAnimation(Self.snapSpring) { dragTranslation = .zero }
+            land()
             return
         }
         // Commit now so List mode updates immediately, then spring from where the finger
@@ -177,7 +193,18 @@ private struct FridgeItemTile: View {
         onMove(target)
         dragTranslation = CGSize(width: visual.x - newBase.x, height: visual.y - newBase.y)
         DispatchQueue.main.async {
-            withAnimation(Self.snapSpring) { dragTranslation = .zero }
+            Haptics.settle()
+            land()
+        }
+    }
+
+    /// Springs the tile to rest at its base slot and lowers it once that has fully finished.
+    private func land() {
+        withAnimation(snapAnimation, completionCriteria: .logicallyComplete) {
+            dragTranslation = .zero
+            isLifted = false
+        } completion: {
+            isRaised = false
         }
     }
 }
