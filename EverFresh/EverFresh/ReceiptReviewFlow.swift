@@ -54,15 +54,9 @@ struct ReceiptReviewFlow: View {
                 }
             }
             .background(Color.enamel)
-            .navigationTitle(navigationTitle)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar(currentIndex < localItems.count ? .hidden : .visible, for: .navigationBar)
+            .toolbar(.hidden, for: .navigationBar)
             .task { await loadOccupancy() }
         }
-    }
-
-    private var navigationTitle: String {
-        "\(confirmedItems.count) Item\(confirmedItems.count == 1 ? "" : "s") Added"
     }
 
     // MARK: Zones
@@ -308,33 +302,93 @@ private struct ReceiptSummaryView: View {
     let items: [ScannedItem]
     let onDone: () -> Void
 
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 16), count: 3)
+    private struct Section: Identifiable {
+        let zone: FridgeZone?  // nil = ungrouped
+        let items: [ScannedItem]
+        var id: String { zone.map { "\($0)" } ?? "ungrouped" }
+    }
+
+    /// nil until the fridge fetch finishes; `failed` means fall back to one ungrouped section.
+    @State private var assignments: [String: SlotAssignment]?
+    @State private var failed = false
+
+    private static let columns = [GridItem(.adaptive(minimum: 76), spacing: 20, alignment: .top)]
+
+    private var pricedTotal: Double { items.compactMap(\.pricePaid).reduce(0, +) }
+    private var unpricedCount: Int { items.filter { $0.pricePaid == nil }.count }
+
+    private var sections: [Section] {
+        guard let assignments else { return failed ? [Section(zone: nil, items: items)] : [] }
+        let grouped = Dictionary(grouping: items) { assignments[$0.documentId]?.zone }
+        var result = FridgeLayout.displayOrder.compactMap { zone in
+            grouped[zone].map { Section(zone: zone, items: $0) }
+        }
+        // Anything the fridge doesn't know about still gets shown.
+        if let orphans = grouped[nil] { result.append(Section(zone: nil, items: orphans)) }
+        return result
+    }
 
     var body: some View {
-        VStack(spacing: 0) {
-            ScrollView {
-                LazyVGrid(columns: columns, spacing: 20) {
-                    ForEach(items) { item in
-                        VStack(spacing: 8) {
-                            Image(systemName: CategoryIcons.symbol(for: item.category ?? "other"))
-                                .font(.system(size: 26))
-                                .frame(width: 56, height: 56)
-                                .background(Color.frost, in: Circle())
-                                .overlay(Circle().strokeBorder(Color.shelfSteel, lineWidth: 1))
-                            Text(item.name)
-                                .font(.system(.caption, weight: .heavy))
-                                .multilineTextAlignment(.center)
-                                .lineLimit(2)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                Text("\(items.count) item\(items.count == 1 ? "" : "s") added")
+                    .font(.everFreshTitle)
+                    .tracking(-0.4)
+
+                if items.contains(where: { $0.pricePaid != nil }) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text("Total").font(.everFreshBody).foregroundStyle(Color.shelfSteel)
+                            Spacer()
+                            Text(pricedTotal.formatted(.currency(code: "USD")))
+                                .font(.everFreshStamp.weight(.bold))
+                        }
+                        if unpricedCount > 0 {
+                            Text("\(unpricedCount) item\(unpricedCount == 1 ? " had" : "s had") no price")
+                                .font(.footnote)
+                                .foregroundStyle(Color.shelfSteel)
                         }
                     }
                 }
-                .padding()
-            }
 
-            Button("Done", action: onDone)
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .padding()
+                ForEach(sections) { section in
+                    VStack(alignment: .leading, spacing: 12) {
+                        if let zone = section.zone {
+                            Text(zone.displayName).everFreshSectionHeader()
+                        }
+                        LazyVGrid(columns: Self.columns, spacing: 20) {
+                            ForEach(section.items) { item in
+                                ItemTile(item: item, size: 72, showsName: true)
+                                    .overlay(alignment: .topTrailing) {
+                                        DateTape(expiryDate: item.expiryDate, style: .compact)
+                                            .offset(x: 12, y: -6)
+                                    }
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(20)
+        }
+        .background(Color.enamel)
+        .safeAreaInset(edge: .bottom) {
+            Button(action: onDone) {
+                Text("Put it all away")
+                    .font(.system(.body, weight: .semibold))
+                    .frame(maxWidth: .infinity, minHeight: 50)
+                    .foregroundStyle(.white)
+                    .background(Color.freezerUltramarine, in: RoundedRectangle(cornerRadius: 14))
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 8)
+            .background(Color.enamel)
+        }
+        .task {
+            do {
+                assignments = FridgeLayout.resolve(items: try await ItemService.fetchActiveItems())
+            } catch {
+                failed = true
+            }
         }
     }
 }
