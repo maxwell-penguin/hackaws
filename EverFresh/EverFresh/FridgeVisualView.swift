@@ -10,8 +10,12 @@ struct FridgeVisualView: View {
     let onMove: (String, SlotAssignment) -> Void
     let onConsume: (ScannedItem) -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedItem: ScannedItem?
     @State private var isDetailPresented = false
+    /// True only while the once-per-launch door swing plays; the flat layout is used at all other times.
+    @State private var isSwinging = Motion.doorSwingEnabled && !Motion.hasPlayedDoorSwing
+    @State private var doorOpen = false
     @State private var highlightedZone: FridgeZone?
 
     /// Slot for a drop at `point`, or nil if that zone is full. The item's own slot counts as free.
@@ -22,6 +26,65 @@ struct FridgeVisualView: View {
         return SlotAssignment(zone: zone, slotIndex: index, center: FridgeLayout.slots(for: zone)[index])
     }
 
+    private func isDoorItem(_ item: ScannedItem) -> Bool {
+        assignments[item.documentId]?.zone.isDoor ?? false
+    }
+
+    @ViewBuilder
+    private func tiles(_ list: [ScannedItem], transform: CanvasTransform) -> some View {
+        ForEach(list) { item in
+            if let assignment = assignments[item.documentId] {
+                FridgeItemTile(
+                    item: item,
+                    baseCenter: assignment.center,
+                    transform: transform,
+                    dropAssignment: { dropAssignment(for: item.documentId, at: $0) },
+                    onTap: {
+                        selectedItem = item
+                        isDetailPresented = true
+                    },
+                    onDragChanged: { highlightedZone = $0 },
+                    onMove: { onMove(item.documentId, $0) },
+                    onConsume: { onConsume(item) }
+                )
+            }
+        }
+    }
+
+    /// Door layer + door tiles, hinged on the fridge's trailing edge. Swings from ~80 degrees to flat
+    /// (positive angle brings the free edge toward the viewer); under Reduce Motion it only fades in.
+    private func doorGroup(transform: CanvasTransform, size: CGSize) -> some View {
+        let hingeX = transform.toScreen(CGPoint(x: FridgeLayout.bodyRect.maxX, y: 0)).x
+        return ZStack {
+            FridgeIllustrationView(
+                scale: transform.scale,
+                offset: transform.offset,
+                highlightedZone: highlightedZone,
+                layer: .door
+            )
+            tiles(items.filter(isDoorItem), transform: transform)
+        }
+        .opacity(doorOpen ? 1 : 0)
+        .animation(reduceMotion ? Motion.doorReducedFade : Motion.doorFade, value: doorOpen)
+        .rotation3DEffect(
+            .degrees(doorOpen || reduceMotion ? 0 : 80),
+            axis: (x: 0, y: 1, z: 0),
+            anchor: UnitPoint(x: hingeX / max(size.width, 1), y: 0.5),
+            perspective: 0.5
+        )
+        .animation(Motion.doorSwing, value: doorOpen)
+    }
+
+    private func startDoorSwingIfNeeded() {
+        guard isSwinging, !Motion.hasPlayedDoorSwing else { return }
+        Motion.hasPlayedDoorSwing = true
+        doorOpen = true
+        Task {
+            try? await Task.sleep(for: .seconds(reduceMotion ? 0.2 : Motion.doorSwingDuration))
+            isSwinging = false
+        }
+    }
+
     var body: some View {
         GeometryReader { geometry in
             let transform = CanvasTransform(fitting: FridgeLayout.size, in: geometry.size)
@@ -30,29 +93,29 @@ struct FridgeVisualView: View {
                 FridgeIllustrationView(
                     scale: transform.scale,
                     offset: transform.offset,
-                    highlightedZone: highlightedZone
+                    highlightedZone: highlightedZone,
+                    layer: .body
                 )
 
-                ForEach(items) { item in
-                    if let assignment = assignments[item.documentId] {
-                        FridgeItemTile(
-                            item: item,
-                            baseCenter: assignment.center,
-                            transform: transform,
-                            dropAssignment: { dropAssignment(for: item.documentId, at: $0) },
-                            onTap: {
-                                selectedItem = item
-                                isDetailPresented = true
-                            },
-                            onDragChanged: { highlightedZone = $0 },
-                            onMove: { onMove(item.documentId, $0) },
-                            onConsume: { onConsume(item) }
-                        )
-                    }
+                if isSwinging {
+                    // While swinging, the door column and its tiles move as one unit; everything
+                    // else sits still. Dragging is off (hit testing disabled) for these 0.4s.
+                    doorGroup(transform: transform, size: geometry.size)
+                    tiles(items.filter { !isDoorItem($0) }, transform: transform)
+                } else {
+                    FridgeIllustrationView(
+                        scale: transform.scale,
+                        offset: transform.offset,
+                        highlightedZone: highlightedZone,
+                        layer: .door
+                    )
+                    tiles(items, transform: transform)
                 }
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
         }
+        .allowsHitTesting(!isSwinging)
+        .onAppear { startDoorSwingIfNeeded() }
         .navigationDestination(isPresented: $isDetailPresented) {
             if let selectedItem {
                 ItemDetailView(item: selectedItem)

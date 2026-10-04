@@ -7,6 +7,19 @@ struct FridgeIllustrationView: View {
     let scale: CGFloat
     let offset: CGSize
     var highlightedZone: FridgeZone? = nil
+    var layer: Layer = .all
+
+    /// The door column (bins + bottle rack) is its own layer so it can swing as a unit.
+    enum Layer {
+        case all, body, door
+        func includes(_ zone: FridgeZone) -> Bool {
+            switch self {
+            case .all: return true
+            case .body: return !zone.isDoor
+            case .door: return zone.isDoor
+            }
+        }
+    }
 
     private static let lineWidth: CGFloat = 1.5
 
@@ -27,14 +40,16 @@ struct FridgeIllustrationView: View {
 
             // Body and seam.
             let body = FridgeLayout.bodyRect
-            stroke(Path(roundedRect: body, cornerRadius: 20))
-            var seam = Path()
-            seam.move(to: CGPoint(x: FridgeLayout.seamX, y: body.minY))
-            seam.addLine(to: CGPoint(x: FridgeLayout.seamX, y: body.maxY))
-            stroke(seam)
+            if layer != .door {
+                stroke(Path(roundedRect: body, cornerRadius: 20))
+                var seam = Path()
+                seam.move(to: CGPoint(x: FridgeLayout.seamX, y: body.minY))
+                seam.addLine(to: CGPoint(x: FridgeLayout.seamX, y: body.maxY))
+                stroke(seam)
+            }
 
             // Glass shelf rails: a 1.5pt line with a thin 0.75pt line 3pt below.
-            for zone in [FridgeZone.topShelf, .middleShelf, .bottomShelf] {
+            for zone in [FridgeZone.topShelf, .middleShelf, .bottomShelf] where layer.includes(zone) {
                 let rect = FridgeLayout.rects[zone]!
                 let y = FridgeLayout.railY(for: zone)
                 stroke(line(rect.minX + 6, rect.maxX - 6, y: y))
@@ -43,11 +58,13 @@ struct FridgeIllustrationView: View {
 
             // Crisper: outlined drawer with a short handle at top center.
             let crisper = FridgeLayout.rects[.crisperDrawer]!
-            stroke(Path(roundedRect: crisper.insetBy(dx: 6, dy: 4), cornerRadius: 12))
-            stroke(line(crisper.midX - 10, crisper.midX + 10, y: crisper.minY + 9))
+            if layer.includes(.crisperDrawer) {
+                stroke(Path(roundedRect: crisper.insetBy(dx: 6, dy: 4), cornerRadius: 12))
+                stroke(line(crisper.midX - 10, crisper.midX + 10, y: crisper.minY + 9))
+            }
 
             // Door bins: a body with a slightly lipped, rounded top.
-            for zone in [FridgeZone.doorBinTop, .doorBinMiddle, .doorBinBottom] {
+            for zone in [FridgeZone.doorBinTop, .doorBinMiddle, .doorBinBottom] where layer.includes(zone) {
                 let rect = FridgeLayout.rects[zone]!.insetBy(dx: 6, dy: 2)
                 stroke(Path(roundedRect: CGRect(x: rect.minX, y: rect.minY + 5, width: rect.width, height: rect.height - 5),
                             cornerRadius: 8))
@@ -57,12 +74,14 @@ struct FridgeIllustrationView: View {
 
             // Bottle rack: tall rounded rect with one bar across.
             let rack = FridgeLayout.rects[.bottleRack]!.insetBy(dx: 6, dy: 2)
-            stroke(Path(roundedRect: rack, cornerRadius: 10))
-            let barY = rack.minY + FridgeLayout.labelStripHeight + (rack.height - FridgeLayout.labelStripHeight) / 2
-            stroke(line(rack.minX + 6, rack.maxX - 6, y: barY))
+            if layer.includes(.bottleRack) {
+                stroke(Path(roundedRect: rack, cornerRadius: 10))
+                let barY = rack.minY + FridgeLayout.labelStripHeight + (rack.height - FridgeLayout.labelStripHeight) / 2
+                stroke(line(rack.minX + 6, rack.maxX - 6, y: barY))
+            }
 
             // Zone names.
-            for zone in FridgeLayout.displayOrder {
+            for zone in FridgeLayout.displayOrder where layer.includes(zone) {
                 let rect = FridgeLayout.rects[zone]!
                 let label = Text(zone.displayName)
                     .font(.system(size: 13, weight: .semibold))
@@ -75,7 +94,7 @@ struct FridgeIllustrationView: View {
         .overlay {
             // Every zone always has its outline; opacity alone shows/hides it so it can fade.
             ZStack {
-                ForEach(FridgeLayout.displayOrder, id: \.self) { zone in
+                ForEach(FridgeLayout.displayOrder.filter(layer.includes), id: \.self) { zone in
                     let rect = FridgeLayout.rects[zone]!.insetBy(dx: 2, dy: 2)
                     RoundedRectangle(cornerRadius: 10 * scale)
                         .strokeBorder(Color.freezerUltramarine, lineWidth: Self.lineWidth)
@@ -86,6 +105,15 @@ struct FridgeIllustrationView: View {
             }
             .animation(Motion.zoneHighlightFade, value: highlightedZone)
             .allowsHitTesting(false)
+        }
+    }
+}
+
+extension FridgeZone {
+    var isDoor: Bool {
+        switch self {
+        case .doorBinTop, .doorBinMiddle, .doorBinBottom, .bottleRack: return true
+        default: return false
         }
     }
 }

@@ -9,6 +9,14 @@ enum Motion {
     static let liftScale: CGFloat = 1.08
 
 
+    // Fridge door swing: decorative, one constant turns it off. Plays once per launch.
+    static let doorSwingEnabled = true
+    static let doorSwingDuration = 0.4
+    static let doorSwing = Animation.easeOut(duration: doorSwingDuration)
+    static let doorFade = Animation.easeOut(duration: doorSwingDuration / 2)
+    static let doorReducedFade = Animation.easeOut(duration: 0.2)
+    static var hasPlayedDoorSwing = false
+
     // Receipt review: paper-feed strip, item sheet, summary tiles.
     static let stripTickCount = 3
     static let stripTickDuration = 0.12
