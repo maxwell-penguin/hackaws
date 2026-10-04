@@ -26,10 +26,13 @@ struct ReceiptReviewFlow: View {
     @State private var showEdit = false
     @State private var showStopConfirm = false
 
-    private static let cardTransition: AnyTransition = .asymmetric(
-        insertion: .move(edge: .trailing).combined(with: .opacity),
-        removal: .move(edge: .leading).combined(with: .opacity)
-    )
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private enum SheetPhase { case resting, exiting, below }
+    /// Which item the sheet content shows; trails `currentIndex` while the old sheet is leaving.
+    @State private var sheetIndex = 0
+    @State private var sheetPhase = SheetPhase.resting
+    @State private var isTransitioning = false
 
     init(items: [ScannedItem]) {
         self.items = items
@@ -43,14 +46,11 @@ struct ReceiptReviewFlow: View {
                     emptyState
                 } else if currentIndex < localItems.count {
                     itemScreen
-                        .id(localItems[currentIndex].documentId)
-                        .transition(Self.cardTransition)
                 } else {
                     ReceiptSummaryView(items: confirmedItems) {
                         appState.selectedTab = .fridge
                         dismiss()
                     }
-                    .transition(Self.cardTransition)
                 }
             }
             .background(Color.enamel)
@@ -96,7 +96,7 @@ struct ReceiptReviewFlow: View {
     }
 
     private var itemScreen: some View {
-        let item = localItems[currentIndex]
+        let item = localItems[min(sheetIndex, localItems.count - 1)]
         return VStack(spacing: 0) {
             header
             ThermalStripView(items: localItems, currentIndex: currentIndex)
@@ -108,7 +108,7 @@ struct ReceiptReviewFlow: View {
             actions
         }
         .sheet(isPresented: $showEdit) {
-            ItemEditSheet(item: item) { localItems[currentIndex] = $0 }
+            ItemEditSheet(item: item) { localItems[sheetIndex] = $0 }
         }
         .confirmationDialog(
             "Stop reviewing? The other \(remainingCount) item\(remainingCount == 1 ? " is" : "s are") already in your fridge with the details we found.",
@@ -188,6 +188,8 @@ struct ReceiptReviewFlow: View {
             }
             Spacer(minLength: 0)
         }
+        .opacity(sheetPhase == .resting ? 1 : 0)
+        .offset(y: reduceMotion ? 0 : (sheetPhase == .exiting ? -16 : (sheetPhase == .below ? 28 : 0)))
         .padding(20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Color.frost)
@@ -250,12 +252,12 @@ struct ReceiptReviewFlow: View {
                 .foregroundStyle(.white)
                 .background(Color.freezerUltramarine, in: RoundedRectangle(cornerRadius: 14))
             }
-            .disabled(isSaving)
+            .disabled(isSaving || isTransitioning)
 
             Button("Edit") { showEdit = true }
                 .foregroundStyle(Color.compressor)
                 .frame(minHeight: 44)
-                .disabled(isSaving)
+                .disabled(isSaving || isTransitioning)
         }
         .padding(.horizontal, 20)
         .padding(.top, 12)
@@ -267,7 +269,6 @@ struct ReceiptReviewFlow: View {
     private func confirm() async {
         guard !isSaving, currentIndex < localItems.count else { return }
         isSaving = true
-        defer { isSaving = false }
 
         var updated = localItems[currentIndex]
         // Quantity is "percent left" (100 = full); an item just confirmed into the fridge starts full.
@@ -278,13 +279,40 @@ struct ReceiptReviewFlow: View {
             await place(saved)
             localItems[currentIndex] = saved
             confirmedItems.append(saved)
-            withAnimation(.easeInOut(duration: 0.3)) {
-                currentIndex += 1
-            }
+            isSaving = false
+            await advance()
         } catch {
+            isSaving = false
             errorMessage = error.localizedDescription
             showError = true
         }
+    }
+
+    /// Paper-feed: the strip ticks (it watches `currentIndex`) while the old sheet content exits,
+    /// then the next content rises in. After the last item the sheet exits and the summary appears.
+    private func advance() async {
+        isTransitioning = true
+        defer { isTransitioning = false }
+        let exit = reduceMotion ? Motion.reducedFade : Motion.sheetExit
+        let enter = reduceMotion ? Motion.reducedFade : Motion.sheetEnter
+        let isLast = currentIndex + 1 >= localItems.count
+
+        if !isLast { currentIndex += 1 }
+        withAnimation(exit) { sheetPhase = .exiting }
+        try? await Task.sleep(for: .seconds(reduceMotion ? 0.15 : 0.18))
+
+        if isLast {
+            currentIndex += 1  // summary replaces the screen; no tick, no entrance
+            return
+        }
+        var instant = Transaction(animation: nil)
+        instant.disablesAnimations = true
+        withTransaction(instant) {
+            sheetIndex = currentIndex
+            sheetPhase = .below
+        }
+        withAnimation(enter) { sheetPhase = .resting }
+        try? await Task.sleep(for: .seconds(reduceMotion ? 0.15 : 0.4))  // let the spring settle before re-enabling
     }
 
     /// Moves the saved item into its chosen zone's first free slot. Best-effort: a failure here never blocks the flow.
@@ -311,11 +339,27 @@ private struct ReceiptSummaryView: View {
     /// nil until the fridge fetch finishes; `failed` means fall back to one ungrouped section.
     @State private var assignments: [String: SlotAssignment]?
     @State private var failed = false
+    /// Flipped just after the sections first render, so only on-screen tiles animate in.
+    @State private var landed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private static let columns = [GridItem(.adaptive(minimum: 76), spacing: 20, alignment: .top)]
 
     private var pricedTotal: Double { items.compactMap(\.pricePaid).reduce(0, +) }
     private var unpricedCount: Int { items.filter { $0.pricePaid == nil }.count }
+
+    /// Position of each tile across all sections, in the order they appear on screen.
+    private var globalIndex: [String: Int] {
+        var result: [String: Int] = [:]
+        for item in sections.flatMap(\.items) { result[item.documentId] = result.count }
+        return result
+    }
+
+    private func entrance(for item: ScannedItem?) -> Animation {
+        let index = item.flatMap { globalIndex[$0.documentId] } ?? 0
+        let delay = min(Double(index) * Motion.tileStagger, Motion.tileStaggerCap)
+        return (reduceMotion ? Motion.reducedFade : Motion.tileDrop).delay(delay)
+    }
 
     private var sections: [Section] {
         guard let assignments else { return failed ? [Section(zone: nil, items: items)] : [] }
@@ -355,6 +399,8 @@ private struct ReceiptSummaryView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         if let zone = section.zone {
                             Text(zone.displayName).everFreshSectionHeader()
+                                .opacity(landed ? 1 : 0)
+                                .animation(entrance(for: section.items.first), value: landed)
                         }
                         LazyVGrid(columns: Self.columns, spacing: 20) {
                             ForEach(section.items) { item in
@@ -363,6 +409,10 @@ private struct ReceiptSummaryView: View {
                                         DateTape(expiryDate: item.expiryDate, style: .compact)
                                             .offset(x: 12, y: -6)
                                     }
+                                    .scaleEffect(landed || reduceMotion ? 1 : 0.96)
+                                    .offset(y: landed || reduceMotion ? 0 : -24)
+                                    .opacity(landed ? 1 : 0)
+                                    .animation(entrance(for: item), value: landed)
                             }
                         }
                     }
@@ -389,6 +439,8 @@ private struct ReceiptSummaryView: View {
             } catch {
                 failed = true
             }
+            try? await Task.sleep(for: .seconds(0.05))
+            landed = true
         }
     }
 }

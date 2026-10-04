@@ -8,42 +8,79 @@ struct ThermalStripView: View {
 
     private static let lineHeight: CGFloat = 22
     private static let visibleLines = 5
+    /// At rest the current line sits in the window's third row.
+    private static let restRow = 2
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var offset: CGFloat
+    @State private var tickTask: Task<Void, Never>?
+
+    init(items: [ScannedItem], currentIndex: Int) {
+        self.items = items
+        self.currentIndex = currentIndex
+        _offset = State(initialValue: Self.restOffset(index: currentIndex, count: items.count))
+    }
+
+    /// Content offset that puts `index` in the rest row, clamped at the start and end of the list.
+    private static func restOffset(index: Int, count: Int) -> CGFloat {
+        let firstVisible = min(max(index - restRow, 0), max(count - visibleLines, 0))
+        return -CGFloat(firstVisible) * lineHeight
+    }
 
     private func price(_ item: ScannedItem) -> String {
         item.pricePaid.map { String(format: "%.2f", $0) } ?? "—"
     }
 
-    var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                VStack(spacing: 0) {
-                    ForEach(Array(items.enumerated()), id: \.element.documentId) { index, item in
-                        HStack {
-                            Text(item.name).lineLimit(1)
-                            Spacer(minLength: 12)
-                            Text(price(item))
-                        }
-                        .font(.everFreshStamp)
-                        .foregroundStyle(index < currentIndex ? Color.shelfSteel : Color.compressor)
-                        .frame(height: Self.lineHeight)
-                        .overlay(alignment: .bottom) {
-                            if index == currentIndex {
-                                Rectangle().fill(Color.freezerUltramarine).frame(height: 2)
-                            }
-                        }
-                        .id(item.documentId)
+    private var shownOffset: CGFloat {
+        reduceMotion ? Self.restOffset(index: currentIndex, count: items.count) : offset
+    }
+
+    private var lines: some View {
+        VStack(spacing: 0) {
+            ForEach(Array(items.enumerated()), id: \.element.documentId) { index, item in
+                HStack {
+                    Text(item.name).lineLimit(1)
+                    Spacer(minLength: 12)
+                    Text(price(item))
+                }
+                .font(.everFreshStamp)
+                .foregroundStyle(index < currentIndex ? Color.shelfSteel : Color.compressor)
+                .animation(reduceMotion ? Motion.reducedFade : Motion.stripTick, value: currentIndex)
+                .frame(height: Self.lineHeight)
+                .overlay(alignment: .bottom) {
+                    if index == currentIndex {
+                        Rectangle().fill(Color.freezerUltramarine).frame(height: 2)
                     }
                 }
-                .padding(.horizontal, 16)
             }
-            .scrollDisabled(true)
-            .scrollIndicators(.hidden)
-            .frame(height: Self.lineHeight * CGFloat(Self.visibleLines))
-            .padding(.top, 20)
-            .padding(.bottom, 14)
-            .onAppear { scroll(proxy) }
-            .onChange(of: currentIndex) { scroll(proxy) }
         }
+        .padding(.horizontal, 16)
+        .offset(y: shownOffset)
+    }
+
+    var body: some View {
+        let windowHeight = Self.lineHeight * CGFloat(Self.visibleLines)
+        ZStack(alignment: .top) {
+            // Under Reduce Motion the whole line block cross-fades to its new position.
+            lines.id(reduceMotion ? shownOffset : 0).transition(.opacity)
+        }
+        .frame(height: windowHeight, alignment: .top)
+        .animation(reduceMotion ? Motion.reducedFade : nil, value: currentIndex)
+        .clipped()
+        .mask {
+            // Lines leaving the top fade out; no fade while the strip is still at the start.
+            LinearGradient(
+                stops: [
+                    .init(color: .black.opacity(shownOffset < -0.5 ? 0 : 1), location: 0),
+                    .init(color: .black, location: Self.lineHeight * 0.8 / windowHeight),
+                ],
+                startPoint: .top, endPoint: .bottom
+            )
+        }
+        .padding(.top, 20)
+        .padding(.bottom, 14)
+        .onChange(of: currentIndex) { old, new in tick(from: old, to: new) }
+        .onDisappear { tickTask?.cancel() }
         .background(Color.frost)
         .overlay(alignment: .top) { PerforationRow().padding(.top, 8) }
         .clipShape(TornBottomShape())
@@ -51,12 +88,23 @@ struct ThermalStripView: View {
         .accessibilityHidden(true)
     }
 
-    private func scroll(_ proxy: ScrollViewProxy) {
-        guard items.indices.contains(currentIndex) else { return }
-        var transaction = Transaction(animation: nil)
-        transaction.disablesAnimations = true
-        withTransaction(transaction) {
-            proxy.scrollTo(items[currentIndex].documentId, anchor: .center)
+    /// Moves to the new rest offset in equal eased steps; a newer change cancels the old ticks and
+    /// first snaps to where they were headed, so the strip never rests mid-step.
+    private func tick(from old: Int, to new: Int) {
+        tickTask?.cancel()
+        let start = Self.restOffset(index: old, count: items.count)
+        let target = Self.restOffset(index: new, count: items.count)
+        offset = start
+        guard !reduceMotion, target != start else { offset = target; return }
+        tickTask = Task { @MainActor in
+            for step in 1...Motion.stripTickCount {
+                withAnimation(Motion.stripTick) {
+                    offset = start + (target - start) * CGFloat(step) / CGFloat(Motion.stripTickCount)
+                }
+                try? await Task.sleep(for: .seconds(Motion.stripTickDuration))
+                if Task.isCancelled { return }
+            }
+            offset = target
         }
     }
 }
