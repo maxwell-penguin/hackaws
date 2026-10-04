@@ -64,7 +64,7 @@ struct FridgeCanvasView: View {
                     } else {
                         switch mode {
                         case .visual:
-                            FridgeVisualView(items: items, assignments: assignments, onConsume: markConsumed)
+                            FridgeVisualView(items: items, assignments: assignments, onMove: moveItem, onConsume: markConsumed)
                         case .list:
                             FridgeListView(items: items, assignments: assignments, onConsume: markConsumed)
                         }
@@ -116,6 +116,8 @@ struct FridgeCanvasView: View {
         migrationTask = Task {
             for (documentId, center) in pending {
                 if Task.isCancelled { return }
+                // The user may have dragged this item since the load; don't overwrite their move.
+                guard assignments[documentId]?.center == center else { continue }
                 try? await ItemService.updatePosition(documentId: documentId, x: center.x, y: center.y)
                 if let index = items.firstIndex(where: { $0.documentId == documentId }) {
                     items[index].positionX = center.x
@@ -123,6 +125,17 @@ struct FridgeCanvasView: View {
                 }
             }
         }
+    }
+
+    /// Drag-and-drop landing: the container stays the source of truth, so both view modes see
+    /// the new slot immediately; the save itself is best-effort.
+    private func moveItem(documentId: String, to assignment: SlotAssignment) {
+        assignments[documentId] = assignment
+        if let index = items.firstIndex(where: { $0.documentId == documentId }) {
+            items[index].positionX = assignment.center.x
+            items[index].positionY = assignment.center.y
+        }
+        Task { try? await ItemService.updatePosition(documentId: documentId, x: assignment.center.x, y: assignment.center.y) }
     }
 
     /// Shared by both view modes: mark consumed on the server, then drop it from the local
