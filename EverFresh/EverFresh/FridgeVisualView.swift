@@ -102,7 +102,6 @@ private struct FridgeItemTile: View {
     @State private var showConsumeConfirmation = false
 
     private var side: CGFloat { FridgeLayout.iconSize * transform.scale }
-    private var cornerRadius: CGFloat { 10 * transform.scale }
     private var screenBase: CGPoint { transform.toScreen(baseCenter) }
 
     private var displayPosition: CGPoint {
@@ -111,44 +110,8 @@ private struct FridgeItemTile: View {
 
     private var isDragging: Bool { dragTranslation != .zero }
 
-    private var placeholder: some View {
-        ZStack {
-            Color.frost
-            VStack(spacing: 2) {
-                Image(systemName: CategoryIcons.symbol(for: item.category ?? "other"))
-                    .font(.system(size: side * 0.4))
-                    .foregroundStyle(Color.compressor)
-                Text(item.name)
-                    .font(.caption2)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .foregroundStyle(Color.compressor)
-            }
-            .padding(.horizontal, 3)
-            RoundedRectangle(cornerRadius: cornerRadius).strokeBorder(Color.shelfSteel, lineWidth: 1)
-        }
-    }
-
-    @ViewBuilder
-    private var tileFace: some View {
-        if let urlString = item.photoUrl, let url = URL(string: urlString) {
-            AsyncImage(url: url) { phase in
-                if let image = phase.image {
-                    image.resizable().scaledToFill()
-                } else {
-                    placeholder
-                }
-            }
-        } else {
-            placeholder
-        }
-    }
-
     var body: some View {
-        tileFace
-            .frame(width: side, height: side)
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
-            .shadow(color: .black.opacity(0.18), radius: 1.5, y: 2)
+        ItemTile(item: item, size: side, showsName: true)
             .overlay(alignment: .topTrailing) {
                 DateTape(expiryDate: item.expiryDate, style: .compact)
                     .offset(x: 12, y: -6)
