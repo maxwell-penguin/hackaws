@@ -170,14 +170,26 @@ enum ItemService {
         return try JSONDecoder().decode(StrapiListResponse<ScannedItem>.self, from: data).data
     }
 
-    static func fetchRecipeSuggestions(expiringItems: [String], activeInventory: [String]) async throws -> [RecipeSuggestion] {
+    static func fetchRecipeSuggestions(
+        category: RecipeCategory,
+        inventory: [RecipeInventoryItem],
+        count: Int,
+        exclude: [String]
+    ) async throws -> [RecipeSuggestion] {
+        struct Body: Encodable {
+            let category: String
+            let inventory: [RecipeInventoryItem]
+            let count: Int
+            let exclude: [String]
+        }
+
         var request = URLRequest(url: URL(string: "\(Config.baseURL)/api/recipe-suggestions")!)
         request.httpMethod = "POST"
+        request.timeoutInterval = 90  // generation can take a while
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode([
-            "expiringItems": expiringItems,
-            "activeInventory": activeInventory,
-        ])
+        request.httpBody = try JSONEncoder().encode(
+            Body(category: category.rawValue, inventory: inventory, count: count, exclude: exclude)
+        )
 
         let (data, response) = try await URLSession.shared.data(for: request)
         try Self.checkOK(data: data, response: response)

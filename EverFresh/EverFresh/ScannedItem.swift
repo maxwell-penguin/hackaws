@@ -95,7 +95,7 @@ struct StrapiListResponse<T: Decodable>: Decodable {
     }
 }
 
-private struct FailableDecodable<T: Decodable>: Decodable {
+struct FailableDecodable<T: Decodable>: Decodable {
     let value: T?
 
     init(from decoder: Decoder) throws {
