@@ -196,6 +196,45 @@ enum ItemService {
         return try JSONDecoder().decode(RecipeSuggestionsResponse.self, from: data).recipes
     }
 
+    static func fetchRecipeSteps(
+        name: String,
+        servings: Int?,
+        category: RecipeCategory,
+        ingredients: [RecipeIngredient]
+    ) async throws -> (steps: [String], tip: String?) {
+        struct StepIngredient: Encodable {
+            let name: String
+            let amount: String?
+            let required: Bool
+        }
+        struct Body: Encodable {
+            let name: String
+            let servings: Int?
+            let category: String
+            let ingredients: [StepIngredient]
+        }
+        struct Response: Decodable {
+            let steps: [String]
+            let tip: String?
+        }
+
+        var request = URLRequest(url: URL(string: "\(Config.baseURL)/api/recipe-steps")!)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 90
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(Body(
+            name: name,
+            servings: servings,
+            category: category.rawValue,
+            ingredients: ingredients.map { StepIngredient(name: $0.name, amount: $0.amount, required: $0.required) }
+        ))
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try Self.checkOK(data: data, response: response)
+        let decoded = try JSONDecoder().decode(Response.self, from: data)
+        return (decoded.steps, decoded.tip)
+    }
+
     private static func checkOK(data: Data, response: URLResponse) throws {
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ItemServiceError.invalidResponse

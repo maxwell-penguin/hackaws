@@ -114,7 +114,7 @@ struct RecipeSuggestionsView: View {
         return List {
             ForEach(recipes) { recipe in
                 NavigationLink {
-                    RecipeDetailView(recipe: recipe)
+                    RecipeDetailView(recipe: recipe, store: store)
                 } label: {
                     RecipeRow(resolved: store.resolve(recipe))
                 }

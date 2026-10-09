@@ -40,6 +40,13 @@ final class RecipesStore: ObservableObject {
         let retry: Retry
     }
 
+    enum StepsState {
+        case idle
+        case loading
+        case loaded(steps: [String], tip: String?)
+        case failed(String)
+    }
+
     private static let batchSize = 3
     private static let maxInventory = 40
     private static let excludeLimit = 20
@@ -50,6 +57,9 @@ final class RecipesStore: ObservableObject {
     @Published private(set) var inlineErrors: [RecipeCategory: InlineError] = [:]
     @Published private(set) var items: [ScannedItem] = []
     @Published private(set) var itemsById: [String: ScannedItem] = [:]
+
+    /// Cooking steps by recipe id; kept for the session so reopening a recipe is instant.
+    @Published private(set) var steps: [UUID: StepsState] = [:]
 
     private var inventorySignature: String?
     private var inventoryLoaded = false
@@ -222,6 +232,30 @@ final class RecipesStore: ObservableObject {
             return "That took too long. Check your connection and try again."
         }
         return error.localizedDescription
+    }
+
+    // MARK: Steps
+
+    func stepsState(for recipe: RecipeSuggestion) -> StepsState { steps[recipe.id] ?? .idle }
+
+    /// Does nothing if the steps are already loading or loaded; a failed load can be retried.
+    func loadSteps(for recipe: RecipeSuggestion) async {
+        switch stepsState(for: recipe) {
+        case .loading, .loaded: return
+        case .idle, .failed: break
+        }
+        steps[recipe.id] = .loading
+        do {
+            let result = try await ItemService.fetchRecipeSteps(
+                name: recipe.name,
+                servings: recipe.servings,
+                category: recipe.category,
+                ingredients: recipe.ingredients
+            )
+            steps[recipe.id] = .loaded(steps: result.steps, tip: result.tip)
+        } catch {
+            steps[recipe.id] = .failed(Self.message(for: error))
+        }
     }
 
     // MARK: Resolving
