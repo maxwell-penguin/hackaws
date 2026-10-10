@@ -2,6 +2,8 @@ import SwiftUI
 
 struct MainTabView: View {
     @EnvironmentObject private var appState: AppState
+    @ObservedObject private var reminders = ReminderScheduler.shared
+    @State private var showPrompt = false
 
     var body: some View {
         TabView(selection: $appState.selectedTab) {
@@ -24,6 +26,29 @@ struct MainTabView: View {
             RecipeSuggestionsView()
                 .tabItem { Label("Recipes", systemImage: "fork.knife") }
                 .tag(AppTab.recipes)
+        }
+        .onAppear { routePendingDestination(); offerPromptIfNeeded() }
+        .onChange(of: reminders.pendingDestination) { routePendingDestination() }
+        .onChange(of: appState.selectedTab) { offerPromptIfNeeded() }
+        .onChange(of: reminders.offerPending) { offerPromptIfNeeded() }
+        .sheet(isPresented: $showPrompt) { RemindersPromptSheet() }
+    }
+
+    /// A tapped reminder may have arrived before this view existed, so this runs on appear too.
+    private func routePendingDestination() {
+        guard let destination = reminders.pendingDestination else { return }
+        if destination == "fridge" { appState.selectedTab = .fridge }
+        reminders.pendingDestination = nil
+    }
+
+    /// Waits briefly so a dismissing flow (receipt review, confirmation sheet) can finish first.
+    private func offerPromptIfNeeded() {
+        guard reminders.offerPending, appState.selectedTab == .fridge else { return }
+        Task {
+            try? await Task.sleep(for: .seconds(0.6))
+            guard reminders.offerPending, appState.selectedTab == .fridge else { return }
+            reminders.offerPending = false
+            showPrompt = true
         }
     }
 }

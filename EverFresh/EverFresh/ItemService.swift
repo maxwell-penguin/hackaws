@@ -92,7 +92,10 @@ enum ItemService {
 
         let (data, response) = try await URLSession.shared.data(for: request)
         try Self.checkOK(data: data, response: response)
-        await MainActor.run { ReminderScheduler.shared.requestRefresh() }
+        await MainActor.run {
+            ReminderScheduler.shared.requestRefresh()
+            ReminderScheduler.shared.noteItemSaved()
+        }
         return try JSONDecoder().decode(StrapiItemResponse.self, from: data).data
     }
 

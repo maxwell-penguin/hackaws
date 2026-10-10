@@ -17,6 +17,23 @@ final class ReminderScheduler: ObservableObject {
     }
     @Published private(set) var authorizationStatus: UNAuthorizationStatus = .notDetermined
 
+    /// Set by a tapped notification; MainTabView consumes it. Lives here (a singleton) because the
+    /// delegate callback can arrive before any view exists.
+    @Published var pendingDestination: String?
+    /// True when the in-context permission prompt should be shown next time the Fridge is visible.
+    @Published var offerPending = false
+
+    private static let declinedKey = "remindersPromptDeclined"
+    var promptDeclined: Bool {
+        get { defaults.bool(forKey: Self.declinedKey) }
+        set { defaults.set(newValue, forKey: Self.declinedKey) }
+    }
+
+    /// Called after an item is saved: offer reminders once, only if the user hasn't been asked or declined.
+    func noteItemSaved() {
+        if authorizationStatus == .notDetermined, !promptDeclined { offerPending = true }
+    }
+
     private var pendingRefresh: Task<Void, Never>?
 
     private init() {
@@ -96,5 +113,13 @@ final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
         [.banner, .sound]
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse
+    ) async {
+        guard let destination = response.notification.request.content.userInfo["destination"] as? String else { return }
+        await MainActor.run { ReminderScheduler.shared.pendingDestination = destination }
     }
 }
