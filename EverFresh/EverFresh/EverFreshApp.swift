@@ -6,12 +6,17 @@
 //
 
 import SwiftUI
+import UserNotifications
 
 @main
 struct EverFreshApp: App {
     @StateObject private var appState = AppState()
+    @Environment(\.scenePhase) private var scenePhase
 
     init() {
+        // Set before launch finishes so a notification delivered at launch is handled. The shared
+        // instance keeps the delegate alive (the center only holds it weakly).
+        UNUserNotificationCenter.current().delegate = NotificationDelegate.shared
         // Nav bars and tab bar are UIKit-drawn, so tokens go in via appearance proxies.
         let nav = UINavigationBarAppearance()
         nav.configureWithOpaqueBackground()
@@ -44,6 +49,13 @@ struct EverFreshApp: App {
                 .tint(.freezerUltramarine)
                 .font(.everFreshBody)
                 .foregroundStyle(Color.compressor)
+                .onChange(of: scenePhase) { _, phase in
+                    guard phase == .active else { return }
+                    Task {
+                        await ReminderScheduler.shared.refreshAuthorizationStatus()
+                        ReminderScheduler.shared.requestRefresh()
+                    }
+                }
         }
     }
 }

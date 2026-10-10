@@ -92,6 +92,7 @@ enum ItemService {
 
         let (data, response) = try await URLSession.shared.data(for: request)
         try Self.checkOK(data: data, response: response)
+        await MainActor.run { ReminderScheduler.shared.requestRefresh() }
         return try JSONDecoder().decode(StrapiItemResponse.self, from: data).data
     }
 
@@ -103,6 +104,7 @@ enum ItemService {
 
         let (data, response) = try await URLSession.shared.data(for: request)
         try Self.checkOK(data: data, response: response)
+        await MainActor.run { ReminderScheduler.shared.requestRefresh() }
     }
 
     static func updatePosition(documentId: String, x: Double, y: Double) async throws {
@@ -123,6 +125,7 @@ enum ItemService {
 
         let (data, response) = try await URLSession.shared.data(for: request)
         try Self.checkOK(data: data, response: response)
+        await MainActor.run { ReminderScheduler.shared.requestRefresh() }
     }
 
     static func deleteItem(documentId: String) async throws {
@@ -131,6 +134,7 @@ enum ItemService {
 
         let (data, response) = try await URLSession.shared.data(for: request)
         try Self.checkOK(data: data, response: response)
+        await MainActor.run { ReminderScheduler.shared.requestRefresh() }
     }
 
     static func fetchExpiringSoon(withinDays days: Int) async throws -> [ScannedItem] {
@@ -148,26 +152,31 @@ enum ItemService {
         return try JSONDecoder().decode(StrapiListResponse<ScannedItem>.self, from: data).data
     }
 
-    static func fetchAllItems() async throws -> [ScannedItem] {
-        var components = URLComponents(string: "\(Config.strapiBaseURL)/api/items")!
-        components.queryItems = [
-            URLQueryItem(name: "sort", value: "createdAt:desc"),
-        ]
+    /// Fetches every page (100 per page). Stops on meta.pagination.pageCount, not on how many
+    /// records decoded, since the lenient decoder can drop malformed ones. Capped at 10 pages.
+    private static func fetchAllPages(_ queryItems: [URLQueryItem]) async throws -> [ScannedItem] {
+        var all: [ScannedItem] = []
+        for page in 1...10 {
+            var components = URLComponents(string: "\(Config.strapiBaseURL)/api/items")!
+            components.queryItems = queryItems + [
+                URLQueryItem(name: "pagination[pageSize]", value: "100"),
+                URLQueryItem(name: "pagination[page]", value: String(page)),
+            ]
+            let (data, response) = try await URLSession.shared.data(from: components.url!)
+            try Self.checkOK(data: data, response: response)
+            let decoded = try JSONDecoder().decode(StrapiListResponse<ScannedItem>.self, from: data)
+            all += decoded.data
+            if page >= (decoded.pageCount ?? 1) { break }
+        }
+        return all
+    }
 
-        let (data, response) = try await URLSession.shared.data(from: components.url!)
-        try Self.checkOK(data: data, response: response)
-        return try JSONDecoder().decode(StrapiListResponse<ScannedItem>.self, from: data).data
+    static func fetchAllItems() async throws -> [ScannedItem] {
+        try await fetchAllPages([URLQueryItem(name: "sort", value: "createdAt:desc")])
     }
 
     static func fetchActiveItems() async throws -> [ScannedItem] {
-        var components = URLComponents(string: "\(Config.strapiBaseURL)/api/items")!
-        components.queryItems = [
-            URLQueryItem(name: "filters[status][$eq]", value: "active"),
-        ]
-
-        let (data, response) = try await URLSession.shared.data(from: components.url!)
-        try Self.checkOK(data: data, response: response)
-        return try JSONDecoder().decode(StrapiListResponse<ScannedItem>.self, from: data).data
+        try await fetchAllPages([URLQueryItem(name: "filters[status][$eq]", value: "active")])
     }
 
     static func fetchRecipeSuggestions(

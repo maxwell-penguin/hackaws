@@ -83,15 +83,23 @@ struct StrapiItemResponse: Decodable {
 /// doesn't fail the whole list — it's dropped and logged instead.
 struct StrapiListResponse<T: Decodable>: Decodable {
     let data: [T]
+    /// meta.pagination.pageCount, when the server sends it.
+    let pageCount: Int?
 
     private enum CodingKeys: String, CodingKey {
-        case data
+        case data, meta
+    }
+
+    private struct Meta: Decodable {
+        struct Pagination: Decodable { let pageCount: Int? }
+        let pagination: Pagination?
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let entries = try container.decode([FailableDecodable<T>].self, forKey: .data)
         data = entries.compactMap(\.value)
+        pageCount = (try? container.decodeIfPresent(Meta.self, forKey: .meta))?.pagination?.pageCount
     }
 }
 

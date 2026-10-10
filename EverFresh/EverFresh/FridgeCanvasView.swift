@@ -17,6 +17,8 @@ struct FridgeCanvasView: View {
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var assignments: [String: SlotAssignment] = [:]
+    @ObservedObject private var scheduler = ReminderScheduler.shared
+    @State private var showReminders = false
     @State private var migrationTask: Task<Void, Never>?
     @State private var mode: FridgeViewMode
 
@@ -74,6 +76,15 @@ struct FridgeCanvasView: View {
             .background(Color.enamel)
             .navigationTitle("Fridge")
             .navigationSubtitle(subtitle)
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button { showReminders = true } label: {
+                        Image(systemName: scheduler.remindersEnabled ? "bell" : "bell.slash")
+                    }
+                    .accessibilityLabel("Reminders")
+                }
+            }
+            .sheet(isPresented: $showReminders) { RemindersSettingsView() }
             .onAppear { Task { await load() } }
             .onChange(of: mode) { _, newMode in
                 UserDefaults.standard.set(newMode.rawValue, forKey: Self.modeDefaultsKey)
