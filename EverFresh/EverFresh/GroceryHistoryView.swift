@@ -27,6 +27,7 @@ struct GroceryHistoryView: View {
                     )
                 } else {
                     List {
+                        if hasResolvedItems { wasteHeader }
                         ForEach(dayGroups, id: \.label) { group in
                             Section {
                                 ForEach(group.items) { item in
@@ -48,6 +49,47 @@ struct GroceryHistoryView: View {
             .background(Color.enamel)
             .navigationTitle("History")
             .onAppear { Task { await load() } }
+        }
+    }
+
+    private var hasResolvedItems: Bool {
+        items.contains { $0.status == "wasted" || $0.status == "consumed" }
+    }
+
+    private var wasteHeader: some View {
+        let s = summarize(items: items, month: Date())
+        let money = { (v: Double) in v.formatted(.currency(code: "USD")) }
+        let month = Date().formatted(.dateTime.month(.wide))
+        let nothing = s.wastedCount == 0 && s.usedCount == 0
+        return Section {
+            NavigationLink {
+                WasteDetailView()
+            } label: {
+                if nothing {
+                    Text("Nothing logged this month").font(.everFreshBody).foregroundStyle(Color.shelfSteel)
+                } else {
+                    HStack(alignment: .top, spacing: 24) {
+                        wasteColumn("Wasted", money(s.wastedValue), "\(s.wastedCount) item\(s.wastedCount == 1 ? "" : "s") thrown out")
+                        wasteColumn("Used", money(s.usedValue), "\(s.usedCount) item\(s.usedCount == 1 ? "" : "s") used up")
+                    }
+                }
+            }
+            .listRowBackground(Color.frost)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(nothing
+                ? "\(month): nothing logged this month"
+                : "\(month): wasted \(money(s.wastedValue)), \(s.wastedCount) thrown out. Used \(money(s.usedValue)), \(s.usedCount) used up.")
+            .accessibilityAddTraits(.isLink)
+        } header: {
+            Text(month).everFreshSectionHeader()
+        }
+    }
+
+    private func wasteColumn(_ label: String, _ value: String, _ detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label).font(.caption).foregroundStyle(Color.shelfSteel)
+            Text(value).font(.system(size: 28, weight: .heavy, design: .monospaced))
+            Text(detail).font(.footnote).foregroundStyle(Color.shelfSteel)
         }
     }
 
