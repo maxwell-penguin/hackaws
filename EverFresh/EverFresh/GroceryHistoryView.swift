@@ -110,6 +110,11 @@ private struct GroceryHistoryRow: View {
                 Text(item.name)
                     .font(.everFreshItemName)
                     .tracking(-0.2)
+                if let resolution = ItemResolution(status: item.status) {
+                    Text(resolution.historyLabel)
+                        .font(.everFreshBody)
+                        .foregroundStyle(Color.shelfSteel)
+                }
                 Text(item.category ?? "Uncategorized")
                     .font(.everFreshBody)
                     .foregroundStyle(Color.shelfSteel)

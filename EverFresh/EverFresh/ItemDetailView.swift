@@ -11,6 +11,9 @@ struct ItemDetailView: View {
     @State private var showEdit = false
     @State private var showDeleteConfirm = false
     @State private var showDeleteError = false
+    @State private var resolveTarget: ScannedItem?
+    @State private var showAllGone = false
+    @State private var failure: ResolveFailure?
     @Environment(\.dismiss) private var dismiss
 
     init(item: ScannedItem) {
@@ -67,6 +70,16 @@ struct ItemDetailView: View {
             }
             .listRowBackground(Color.frost)
 
+            if let resolution = ItemResolution(status: item.status) {
+                Section {
+                    Text("\(resolution.historyLabel) \(resolvedDateLabel)")
+                        .font(.everFreshBody)
+                        .foregroundStyle(Color.shelfSteel)
+                    Button("Put back in fridge") { Task { await restore() } }
+                        .foregroundStyle(Color.freezerUltramarine)
+                }
+                .listRowBackground(Color.frost)
+            } else {
             Section {
                 HStack {
                     Text("\(Int(quantity))% left")
@@ -85,10 +98,13 @@ struct ItemDetailView: View {
                     guard !isEditing else { return }
                     Task { await updateQuantity() }
                 }
+                Button("Take out of fridge") { resolveTarget = item }
+                    .foregroundStyle(Color.freezerUltramarine)
             } header: {
                 Text("Quantity").everFreshSectionHeader()
             }
             .listRowBackground(Color.frost)
+            }
 
             Section {
                 Button("Delete Item", role: .destructive) { showDeleteConfirm = true }
@@ -112,8 +128,23 @@ struct ItemDetailView: View {
         .confirmationDialog("Delete this item?", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
             Button("Delete Item", role: .destructive) { Task { await delete() } }
         } message: {
-            Text("This can't be undone.")
+            Text("This removes it completely, including from your history. If you finished it or threw it out, use Take out of fridge instead.")
         }
+        .resolveDialog(item: $resolveTarget) { _, _ in dismiss() }
+        .confirmationDialog("All gone?", isPresented: $showAllGone, titleVisibility: .visible) {
+            Button("Used it up") {
+                Task {
+                    do {
+                        try await ItemResolution.usedUp.perform(on: item)
+                        dismiss()
+                    } catch {
+                        failure = ResolveFailure(itemName: item.name, message: error.localizedDescription)
+                    }
+                }
+            }
+            Button("Keep it in the fridge", role: .cancel) {}
+        }
+        .resolveFailureAlert($failure)
         .alert("Couldn't update quantity", isPresented: $showError) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -123,6 +154,20 @@ struct ItemDetailView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(errorMessage)
+        }
+    }
+
+    private var resolvedDateLabel: String {
+        let date = (item.resolvedAt ?? item.updatedAt).flatMap(StrapiDate.dateTime(from:))
+        return date?.formatted(.dateTime.month(.abbreviated).day()) ?? ""
+    }
+
+    private func restore() async {
+        do {
+            try await ItemService.restoreToFridge(documentId: item.documentId)
+            dismiss()
+        } catch {
+            failure = ResolveFailure(itemName: item.name, message: error.localizedDescription)
         }
     }
 
@@ -145,6 +190,7 @@ struct ItemDetailView: View {
             try await ItemService.updateQuantity(documentId: item.documentId, quantity: quantity)
             item.quantity = quantity
             showSaved = true
+            if quantity == 0, item.status == "active" { showAllGone = true }
             try? await Task.sleep(for: .seconds(1.5))
             showSaved = false
         } catch {

@@ -20,13 +20,15 @@ struct ScannedItem: Identifiable, Codable {
     var createdAt: String
     var positionX: Double?
     var positionY: Double?
+    var resolvedAt: String?
+    var updatedAt: String?
 
     var id: String { documentId }
 
     enum CodingKeys: String, CodingKey {
         case documentId
         case numericId = "id"
-        case name, description, category, expiryDate, photoUrl, source, status, quantity, pricePaid, createdAt, positionX, positionY
+        case name, description, category, expiryDate, photoUrl, source, status, quantity, pricePaid, createdAt, positionX, positionY, resolvedAt, updatedAt
     }
 
     init(

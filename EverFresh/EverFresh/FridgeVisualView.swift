@@ -8,7 +8,7 @@ struct FridgeVisualView: View {
     let items: [ScannedItem]
     let assignments: [String: SlotAssignment]
     let onMove: (String, SlotAssignment) -> Void
-    let onConsume: (ScannedItem) -> Void
+    let onResolved: (ScannedItem) -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedItem: ScannedItem?
@@ -45,7 +45,7 @@ struct FridgeVisualView: View {
                     },
                     onDragChanged: { highlightedZone = $0 },
                     onMove: { onMove(item.documentId, $0) },
-                    onConsume: { onConsume(item) }
+                    onResolved: { onResolved(item) }
                 )
             }
         }
@@ -156,7 +156,7 @@ private struct FridgeItemTile: View {
     let onTap: () -> Void
     let onDragChanged: (FridgeZone?) -> Void
     let onMove: (SlotAssignment) -> Void
-    let onConsume: () -> Void
+    let onResolved: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -167,7 +167,7 @@ private struct FridgeItemTile: View {
     @State private var isRaised = false
     @State private var isDragInProgress = false
     @State private var didLongPress = false
-    @State private var showConsumeConfirmation = false
+    @State private var resolveTarget: ScannedItem?
 
     private var side: CGFloat { FridgeLayout.iconSize * transform.scale }
     private var screenBase: CGPoint { transform.toScreen(baseCenter) }
@@ -225,21 +225,12 @@ private struct FridgeItemTile: View {
                 LongPressGesture(minimumDuration: 0.5)
                     .onEnded { _ in
                         didLongPress = true
-                        showConsumeConfirmation = true
+                        resolveTarget = item
                     }
             )
-            .confirmationDialog(
-                "Mark \"\(item.name)\" as Consumed?",
-                isPresented: $showConsumeConfirmation,
-                titleVisibility: .visible
-            ) {
-                Button("Mark as Consumed", role: .destructive) {
-                    didLongPress = false
-                    onConsume()
-                }
-                Button("Cancel", role: .cancel) {
-                    didLongPress = false
-                }
+            .resolveDialog(item: $resolveTarget) { _, _ in onResolved() }
+            .onChange(of: resolveTarget == nil) { _, closed in
+                if closed { didLongPress = false }
             }
     }
 
@@ -274,6 +265,6 @@ private struct FridgeItemTile: View {
 
 #Preview {
     NavigationStack {
-        FridgeVisualView(items: [], assignments: [:], onMove: { _, _ in }, onConsume: { _ in })
+        FridgeVisualView(items: [], assignments: [:], onMove: { _, _ in }, onResolved: { _ in })
     }
 }

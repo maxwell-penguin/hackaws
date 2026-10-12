@@ -121,10 +121,26 @@ enum ItemService {
     }
 
     static func markConsumed(documentId: String) async throws {
+        try await setResolution(documentId: documentId, status: "consumed", resolvedAt: StrapiDate.nowDateTimeString())
+    }
+
+    static func markWasted(documentId: String) async throws {
+        try await setResolution(documentId: documentId, status: "wasted", resolvedAt: StrapiDate.nowDateTimeString())
+    }
+
+    /// Puts a consumed/wasted item back as active and clears resolvedAt (a real JSON null).
+    static func restoreToFridge(documentId: String) async throws {
+        try await setResolution(documentId: documentId, status: "active", resolvedAt: nil)
+    }
+
+    /// Never touches quantity: the percent left at resolution time is what waste stats use.
+    private static func setResolution(documentId: String, status: String, resolvedAt: String?) async throws {
         var request = URLRequest(url: URL(string: "\(Config.strapiBaseURL)/api/items/\(documentId)")!)
         request.httpMethod = "PUT"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONSerialization.data(withJSONObject: ["data": ["status": "consumed"]])
+        request.httpBody = try JSONSerialization.data(withJSONObject: [
+            "data": ["status": status, "resolvedAt": resolvedAt as Any? ?? NSNull()] as [String: Any]
+        ])
 
         let (data, response) = try await URLSession.shared.data(for: request)
         try Self.checkOK(data: data, response: response)

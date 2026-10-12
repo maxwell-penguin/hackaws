@@ -66,9 +66,9 @@ struct FridgeCanvasView: View {
                     } else {
                         switch mode {
                         case .visual:
-                            FridgeVisualView(items: items, assignments: assignments, onMove: moveItem, onConsume: markConsumed)
+                            FridgeVisualView(items: items, assignments: assignments, onMove: moveItem, onResolved: removeResolved)
                         case .list:
-                            FridgeListView(items: items, assignments: assignments, onConsume: markConsumed)
+                            FridgeListView(items: items, assignments: assignments, onResolved: removeResolved)
                         }
                     }
                 }
@@ -149,14 +149,10 @@ struct FridgeCanvasView: View {
         Task { try? await ItemService.updatePosition(documentId: documentId, x: assignment.center.x, y: assignment.center.y) }
     }
 
-    /// Shared by both view modes: mark consumed on the server, then drop it from the local
-    /// array so it disappears immediately without a full refetch. Best-effort — if the PATCH
-    /// fails, the item still vanishes locally and simply reappears as active on the next reload.
-    private func markConsumed(_ item: ScannedItem) {
-        Task {
-            try? await ItemService.markConsumed(documentId: item.documentId)
-            items.removeAll { $0.documentId == item.documentId }
-        }
+    /// Called after an item was resolved on the server: drop it locally and free its slot immediately.
+    private func removeResolved(_ item: ScannedItem) {
+        items.removeAll { $0.documentId == item.documentId }
+        assignments[item.documentId] = nil
     }
 }
 

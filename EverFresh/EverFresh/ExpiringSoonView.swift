@@ -6,6 +6,7 @@ struct ExpiringSoonView: View {
     @State private var items: [ScannedItem] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var failure: ResolveFailure?
 
     var body: some View {
         NavigationStack {
@@ -35,8 +36,12 @@ struct ExpiringSoonView: View {
                             ExpiringSoonRow(item: item)
                         }
                         .listRowBackground(Color.frost)
+                        .resolveSwipeActions(for: item, failure: $failure) { resolved, _ in
+                            items.removeAll { $0.documentId == resolved.documentId }
+                        }
                     }
                     .scrollContentBackground(.hidden)
+                    .resolveFailureAlert($failure)
                 }
             }
             .background(Color.enamel)

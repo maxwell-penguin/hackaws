@@ -37,6 +37,11 @@ enum StrapiDate {
         return formatter
     }()
 
+    /// Now, as an ISO 8601 UTC string with fractional seconds (e.g. for resolvedAt).
+    static func nowDateTimeString() -> String {
+        dateTimeFormatter.string(from: Date())
+    }
+
     /// Parses Strapi's createdAt/updatedAt timestamps, which include a time component.
     static func dateTime(from string: String) -> Date? {
         dateTimeFormatter.date(from: string) ?? dateTimeFormatterNoFractionalSeconds.date(from: string)

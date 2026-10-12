@@ -5,7 +5,9 @@ import SwiftUI
 struct FridgeListView: View {
     let items: [ScannedItem]
     let assignments: [String: SlotAssignment]
-    let onConsume: (ScannedItem) -> Void
+    let onResolved: (ScannedItem) -> Void
+
+    @State private var failure: ResolveFailure?
 
     private var sections: [(zone: FridgeZone, items: [ScannedItem])] {
         let grouped = Dictionary(grouping: items) { assignments[$0.documentId]?.zone ?? FridgeLayout.displayOrder[0] }
@@ -37,11 +39,7 @@ struct FridgeListView: View {
                         } label: {
                             FridgeListRow(item: item)
                         }
-                        .swipeActions {
-                            Button("Mark as Consumed", role: .destructive) {
-                                onConsume(item)
-                            }
-                        }
+                        .resolveSwipeActions(for: item, failure: $failure) { resolved, _ in onResolved(resolved) }
                         .listRowBackground(Color.frost)
                     }
                 } header: {
@@ -50,6 +48,7 @@ struct FridgeListView: View {
             }
         }
         .scrollContentBackground(.hidden)
+        .resolveFailureAlert($failure)
     }
 }
 
@@ -72,6 +71,6 @@ private struct FridgeListRow: View {
 
 #Preview {
     NavigationStack {
-        FridgeListView(items: [], assignments: [:], onConsume: { _ in })
+        FridgeListView(items: [], assignments: [:], onResolved: { _ in })
     }
 }
