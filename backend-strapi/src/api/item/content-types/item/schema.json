@@ -30,8 +30,11 @@
     },
     "status": {
       "type": "enumeration",
-      "enum": ["active", "consumed", "depleted", "expired"],
+      "enum": ["active", "consumed", "depleted", "expired", "wasted"],
       "default": "active"
+    },
+    "resolvedAt": {
+      "type": "datetime"
     },
     "description": {
       "type": "string"

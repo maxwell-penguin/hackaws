@@ -508,9 +508,10 @@ export interface ApiItemItem extends Struct.CollectionTypeSchema {
     pricePaid: Schema.Attribute.Decimal;
     publishedAt: Schema.Attribute.DateTime;
     quantity: Schema.Attribute.Decimal;
+    resolvedAt: Schema.Attribute.DateTime;
     source: Schema.Attribute.Enumeration<['manual-scan', 'receipt']>;
     status: Schema.Attribute.Enumeration<
-      ['active', 'consumed', 'depleted', 'expired']
+      ['active', 'consumed', 'depleted', 'expired', 'wasted']
     > &
       Schema.Attribute.DefaultTo<'active'>;
     unit: Schema.Attribute.String;
