@@ -19,6 +19,7 @@ struct FridgeCanvasView: View {
     @State private var assignments: [String: SlotAssignment] = [:]
     @ObservedObject private var scheduler = ReminderScheduler.shared
     @State private var showReminders = false
+    @State private var showExpiredReview = false
     @State private var migrationTask: Task<Void, Never>?
     @State private var mode: FridgeViewMode
 
@@ -32,6 +33,7 @@ struct FridgeCanvasView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                pastDateRow
                 if !isLoading && errorMessage == nil && !items.isEmpty {
                     Picker("View Mode", selection: $mode) {
                         ForEach(FridgeViewMode.allCases, id: \.self) { mode in
@@ -85,10 +87,49 @@ struct FridgeCanvasView: View {
                 }
             }
             .sheet(isPresented: $showReminders) { RemindersSettingsView() }
+            .sheet(isPresented: $showExpiredReview) {
+                ExpiredReviewSheet(items: pastDateItems, onRemoved: removeResolved, onExtended: setExpiry)
+            }
             .onAppear { Task { await load() } }
             .onChange(of: mode) { _, newMode in
                 UserDefaults.standard.set(newMode.rawValue, forKey: Self.modeDefaultsKey)
             }
+        }
+    }
+
+    /// Active items strictly before today ("Today" is not past date).
+    private var pastDateItems: [ScannedItem] {
+        items.filter { $0.status == "active" && (StrapiDate.daysUntil($0.expiryDate) ?? 0) < 0 }
+    }
+
+    @ViewBuilder
+    private var pastDateRow: some View {
+        let count = pastDateItems.count
+        if count > 0 && !isLoading && errorMessage == nil {
+            VStack(spacing: 0) {
+                HStack {
+                    Text(count == 1 ? "1 item is past its date" : "\(count) items are past their date")
+                        .font(.everFreshBody)
+                        .foregroundStyle(Color.compressor)
+                    Spacer()
+                    Button("Review") { showExpiredReview = true }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Color.freezerUltramarine)
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 10)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(count == 1 ? "1 item is past its date" : "\(count) items are past their date")
+                .accessibilityAddTraits(.isButton)
+                .accessibilityAction { showExpiredReview = true }
+                Rectangle().fill(Color.shelfSteel).frame(height: 0.5)
+            }
+        }
+    }
+
+    private func setExpiry(_ item: ScannedItem, _ date: String) {
+        if let index = items.firstIndex(where: { $0.documentId == item.documentId }) {
+            items[index].expiryDate = date
         }
     }
 

@@ -25,11 +25,17 @@ enum ItemResolution {
     }
 }
 
+/// Price × percent left (a nil quantity counts as 100); nil when there's no price.
+func wasteAmount(for item: ScannedItem) -> Double? {
+    guard let price = item.pricePaid, price > 0 else { return nil }
+    return price * (item.quantity ?? 100) / 100
+}
+
 /// "Throwing it out counts about $2.10 as wasted, based on 60% left." nil when there's no price.
 func wasteNote(for item: ScannedItem) -> String? {
-    guard let price = item.pricePaid, price > 0 else { return nil }
+    guard let value = wasteAmount(for: item) else { return nil }
     let percent = item.quantity ?? 100
-    let amount = (price * percent / 100).formatted(.currency(code: "USD"))
+    let amount = value.formatted(.currency(code: "USD"))
     return "Throwing it out counts about \(amount) as wasted, based on \(Int(percent.rounded()))% left."
 }
 

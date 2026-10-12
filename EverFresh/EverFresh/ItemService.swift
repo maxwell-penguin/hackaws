@@ -147,6 +147,17 @@ enum ItemService {
         await MainActor.run { ReminderScheduler.shared.requestRefresh() }
     }
 
+    static func updateExpiryDate(documentId: String, to date: Date) async throws {
+        var request = URLRequest(url: URL(string: "\(Config.strapiBaseURL)/api/items/\(documentId)")!)
+        request.httpMethod = "PUT"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["data": ["expiryDate": StrapiDate.string(from: date)]])
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try Self.checkOK(data: data, response: response)
+        await MainActor.run { ReminderScheduler.shared.requestRefresh() }
+    }
+
     static func deleteItem(documentId: String) async throws {
         var request = URLRequest(url: URL(string: "\(Config.strapiBaseURL)/api/items/\(documentId)")!)
         request.httpMethod = "DELETE"
